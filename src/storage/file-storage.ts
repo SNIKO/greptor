@@ -5,6 +5,10 @@ import YAML from "yaml";
 import type { DocumentRef, GreptorAddInput, Metadata } from "../types.js";
 
 export interface FileStorage {
+	readonly baseDir: string;
+	readonly rawContentPath: string;
+	readonly processedContentPath: string;
+
 	saveRawContent(input: GreptorAddInput): Promise<DocumentRef>;
 	readRawContent(
 		ref: DocumentRef,
@@ -14,6 +18,9 @@ export interface FileStorage {
 }
 
 export function createFileStorage(baseDir: string): FileStorage {
+	const rawContentPath = path.join(baseDir, "raw");
+	const processedContentPath = path.join(baseDir, "processed");
+
 	function resolveLayerPath(
 		layer: "raw" | "processed",
 		ref: DocumentRef,
@@ -174,6 +181,9 @@ export function createFileStorage(baseDir: string): FileStorage {
 	}
 
 	return {
+		baseDir,
+		rawContentPath,
+		processedContentPath,
 		saveRawContent,
 		readRawContent,
 		getUnprocessedContents,

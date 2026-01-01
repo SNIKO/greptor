@@ -1,12 +1,12 @@
 export interface Logger {
 	// biome-ignore lint/suspicious/noExplicitAny: Logger interface requires any
-	debug?: (...args: any[]) => void;
+	debug?: (message: string, ...meta: any[]) => void;
 	// biome-ignore lint/suspicious/noExplicitAny: Logger interface requires any
-	info?: (...args: any[]) => void;
+	info?: (message: string, ...meta: any[]) => void;
 	// biome-ignore lint/suspicious/noExplicitAny: Logger interface requires any
-	warn?: (...args: any[]) => void;
+	warn?: (message: string, ...meta: any[]) => void;
 	// biome-ignore lint/suspicious/noExplicitAny: Logger interface requires any
-	error?: (...args: any[]) => void;
+	error?: (message: string | Error, ...meta: any[]) => void;
 }
 
 export interface GreptorOptions {
@@ -57,4 +57,10 @@ export type GreptorAddResult = {
 	success: boolean;
 	message: string;
 	ref?: DocumentRef;
+};
+
+export type CreateSkillResult = {
+	success: boolean;
+	message: string;
+	skillPath?: string;
 };

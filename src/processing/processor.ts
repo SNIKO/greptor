@@ -76,11 +76,11 @@ async function processDocument(
 	const contentLength = content.length;
 
 	// 2. Chunk content with LLM
-	ctx.logger?.debug?.({ ref, step: "chunk" }, "Chunking document");
+	ctx.logger?.debug?.("Chunking document", { ref, step: "chunk" });
 	const chunks = await chunkDocument(content, ctx.domain, ctx.llm);
 
 	// 3. Extract metadata with LLM
-	ctx.logger?.debug?.({ ref, step: "metadata" }, "Extracting metadata");
+	ctx.logger?.debug?.("Extracting metadata", { ref, step: "metadata" });
 	const chunksMetadata = await extractMetadata(
 		chunks,
 		ctx.domain,
@@ -94,10 +94,11 @@ async function processDocument(
 	// 5. Save processed content
 	await ctx.storage.saveProcessedContent(ref, rendered);
 
-	ctx.logger?.info?.(
-		{ ref, chunks: chunksMetadata.length, bytes: contentLength },
-		"Document processed",
-	);
+	ctx.logger?.info?.("Document processed", {
+		ref,
+		chunks: chunksMetadata.length,
+		bytes: contentLength,
+	});
 }
 
 function sleep(ms: number): Promise<void> {
@@ -126,17 +127,18 @@ export function startBackgroundWorkers(args: {
 				continue;
 			}
 
-			ctx.logger?.debug?.(
-				{ worker: workerIndex, ref: docRef },
-				"Processing started",
-			);
+			ctx.logger?.debug?.("Processing started", {
+				worker: workerIndex,
+				ref: docRef,
+			});
 			try {
 				await processDocument(docRef, ctx);
 			} catch (error) {
-				ctx.logger?.error?.(
-					{ err: error, ref: docRef, worker: workerIndex },
-					"Processing failed",
-				);
+				ctx.logger?.error?.("Processing failed", {
+					err: error,
+					ref: docRef,
+					worker: workerIndex,
+				});
 			}
 		}
 	}
@@ -145,7 +147,7 @@ export function startBackgroundWorkers(args: {
 		workerLoop(i + 1);
 	}
 
-	ctx.logger?.debug?.({ concurrency }, "Background workers started");
+	ctx.logger?.debug?.("Background workers started", { concurrency });
 }
 
 export async function enqueueUnprocessedDocuments(args: {
@@ -156,12 +158,12 @@ export async function enqueueUnprocessedDocuments(args: {
 	const refs = await args.storage.getUnprocessedContents();
 
 	for (const ref of refs) {
-		args.logger?.debug?.({ ref }, "Queued unprocessed document");
+		args.logger?.debug?.("Queued unprocessed document", { ref });
 		args.queue.enqueue(ref);
 	}
 
 	if (refs.length > 0) {
-		args.logger?.debug?.({ count: refs.length }, "Found unprocessed documents");
+		args.logger?.debug?.("Found unprocessed documents", { count: refs.length });
 	}
 
 	return refs.length;
