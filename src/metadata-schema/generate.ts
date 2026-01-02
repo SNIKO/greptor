@@ -1,8 +1,8 @@
 import { zodResponseFormat } from "openai/helpers/zod";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
-import { z } from "zod";
-import { createLlmClient } from "./llm/llm-factory.js";
-import type { MetadataSchmeaItem } from "./types.js";
+import { createLlmClient } from "../llm/llm-factory.js";
+import type { MetadataSchemaItem } from "../types.js";
+import { ResponseSchema } from "./types.js";
 
 const PROMPT_TEMPLATE = (topic: string) => `
 You are an expert information architect designing metadata schemas that improve text search, discovery, and retrieval within a specific knowledge topic. 
@@ -15,31 +15,10 @@ Your goal is to produce a list of 5-10 **metadata fields** that are:
 **TOPIC**: ${topic}
 `;
 
-const MetadataFieldSchema = z.object({
-	name: z.string().describe("Metadata field name in snake_case"),
-	type: z
-		.enum(["string", "number", "boolean", "enum", "date"])
-		.describe("Field data type"),
-	description: z.string().describe("Purpose and usage of this metadata field"),
-	enumValues: z
-		.array(z.string())
-		.optional()
-		.nullable()
-		.describe("Full list of enum values for enum types."),
-});
-
-const ResponseSchema = z.object({
-	metadata_fields: z
-		.array(MetadataFieldSchema)
-		.min(5)
-		.max(10)
-		.describe("List of metadata fields for the given topic"),
-});
-
 export async function generateMetadataSchema(
 	topic: string,
 	llmModel: string,
-): Promise<MetadataSchmeaItem[]> {
+): Promise<MetadataSchemaItem[]> {
 	const { client, model } = createLlmClient(llmModel);
 
 	const messages: ChatCompletionMessageParam[] = [
@@ -58,7 +37,7 @@ export async function generateMetadataSchema(
 	}
 
 	return parsed.metadata_fields.map((field) => {
-		const metadataField: MetadataSchmeaItem = {
+		const metadataField: MetadataSchemaItem = {
 			name: field.name,
 			type: field.type,
 			description: field.description,

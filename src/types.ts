@@ -14,23 +14,19 @@ export interface GreptorOptions {
 	topic: string;
 	llmModel: string;
 	workers?: number;
-	metadataSchema?: MetadataSchmeaItem[];
-	/**
-	 * If true and no schema exists on disk (and none provided), Greptor will call the LLM
-	 * once to generate a starter metadata schema.
-	 *
-	 * Default: false (do not call LLM during initialization).
-	 */
-	autoGenerateMetadataSchema?: boolean;
+	metadataSchema?: MetadataSchemaItem[];
 	logger?: Logger;
 }
 
-export interface MetadataSchmeaItem {
+export interface MetadataSchemaItem {
 	name: string;
 	type: "string" | "number" | "enum" | "date" | "boolean";
 	description: string;
 	enumValues?: string[];
 }
+
+// Backwards-compatible alias (typo in early versions).
+export type MetadataSchmeaItem = MetadataSchemaItem;
 
 export type SupportedFormat = "text";
 

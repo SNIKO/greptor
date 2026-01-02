@@ -1,15 +1,33 @@
 {
 	"name": "greptor",
 	"version": "0.1.0",
-	"private": true,
 	"type": "module",
-	"description": "TBD",
-	"main": "src/greptor.ts",
+	"description": "A high-performance content ingestion and indexing library designed to make unstructured data easily searchable with grep tools.",
+	"license": "MIT",
+	"author": "Niko",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/niko/greptor.git"
+	},
+	"keywords": ["grep", "search", "ingestion", "llm", "rag", "markdown", "yaml"],
+	"main": "./dist/index.js",
+	"sideEffects": false,
+	"files": ["dist", "README.md", "LICENSE"],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"types": "./dist/index.d.ts",
 	"scripts": {
-		"test": "bun test",
+		"build": "rm -rf dist && tsc",
+		"prepublishOnly": "npm run build",
 		"demo": "bun run scripts/test.ts",
-		"typecheck": "tsc --noEmit",
-		"lint": "biome check",
+		"typecheck": "tsc --noEmit -p tsconfig.json",
+		"lint": "biome check .",
 		"fix": "biome format --write"
 	},
 	"engines": {

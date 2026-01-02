@@ -2,7 +2,7 @@ import type { Dirent } from "node:fs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import YAML from "yaml";
-import type { FileStorage } from "../storage/file-storage";
+import type { FileStorage } from "../storage/file-storage.js";
 
 export interface SkillGeneratorOptions {
 	domain: string;
