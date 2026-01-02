@@ -1,14 +1,10 @@
 import type { DocumentRef } from "./storage/types.js";
 
 export interface Logger {
-	// biome-ignore lint/suspicious/noExplicitAny: Logger interface requires any
-	debug?: (message: string, ...meta: any[]) => void;
-	// biome-ignore lint/suspicious/noExplicitAny: Logger interface requires any
-	info?: (message: string, ...meta: any[]) => void;
-	// biome-ignore lint/suspicious/noExplicitAny: Logger interface requires any
-	warn?: (message: string, ...meta: any[]) => void;
-	// biome-ignore lint/suspicious/noExplicitAny: Logger interface requires any
-	error?: (message: string | Error, ...meta: any[]) => void;
+	debug?: (message: string, ...meta: unknown[]) => void;
+	info?: (message: string, ...meta: unknown[]) => void;
+	warn?: (message: string, ...meta: unknown[]) => void;
+	error?: (message: string | Error, ...meta: unknown[]) => void;
 }
 
 export interface GreptorOptions {

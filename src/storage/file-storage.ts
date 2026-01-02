@@ -39,7 +39,11 @@ export function createFileStorage(baseDir: string): FileStorage {
 		return `${year}-${month}`;
 	}
 
-	function sanitize(name: string, maxLength = 50): string {
+	function sanitize(
+		name: string,
+		maxLength = 50,
+		fallback = "unknown",
+	): string {
 		const trimmed = name.trim();
 		let sanitized = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 		sanitized = sanitized.replace(/^-+/, "").replace(/-+$/, "");
@@ -49,7 +53,7 @@ export function createFileStorage(baseDir: string): FileStorage {
 			sanitized = sanitized.slice(0, maxLength);
 		}
 
-		return sanitized;
+		return sanitized || fallback;
 	}
 
 	function generateDocumentRef(args: {
@@ -60,10 +64,12 @@ export function createFileStorage(baseDir: string): FileStorage {
 	}): DocumentRef {
 		const effectiveTimestamp = args.timestamp ?? new Date();
 		const isoDate = effectiveTimestamp.toISOString().split("T")[0];
-		const safeTitle = sanitize(args.label);
+		const safeTitle = sanitize(args.label, 50, "untitled");
 		const yearMonth = getYearMonthSegment(effectiveTimestamp);
-		const source = sanitize(args.source, 20);
-		const author = args.author ? sanitize(args.author, 50) : undefined;
+		const source = sanitize(args.source, 20, "unknown");
+		const author = args.author
+			? sanitize(args.author, 50, "unknown")
+			: undefined;
 		const fileName = `${isoDate}-${safeTitle}.md`;
 
 		return path.posix.join(
@@ -140,17 +146,16 @@ export function createFileStorage(baseDir: string): FileStorage {
 			const ref = generateDocumentRef({
 				label: input.label,
 				source: input.source,
-				author: input.author,
-				timestamp: input.creationDate,
+				...(input.author ? { author: input.author } : {}),
+				...(input.creationDate ? { timestamp: input.creationDate } : {}),
 			});
 
 			const fullPath = resolveLayerPath("raw", ref);
 			if (await fileExists(fullPath)) {
 				if (!input.overwrite) {
 					return {
-						type: "error",
-						message:
-							"Document already exists for this label/date/source. Pass overwrite=true to replace it.",
+						type: "duplicate",
+						ref,
 					};
 				}
 			} else {
@@ -193,7 +198,18 @@ export function createFileStorage(baseDir: string): FileStorage {
 		const after = content.slice(endIndex + 4);
 		const body = after.startsWith("\n") ? after.slice(1) : after;
 		const yamlHeader = content.slice(4, endIndex).trimEnd();
-		const metadata = YAML.parse(yamlHeader) as Metadata;
+		const parsed = YAML.parse(yamlHeader) as unknown;
+		if (
+			typeof parsed !== "object" ||
+			parsed === null ||
+			Array.isArray(parsed)
+		) {
+			throw new Error(
+				`Invalid raw file format. The file '${ref}' has a non-object yaml header.`,
+			);
+		}
+
+		const metadata = parsed as Metadata;
 
 		return { metadata, content: body };
 	}

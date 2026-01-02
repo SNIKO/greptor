@@ -45,7 +45,7 @@ function getProviderConfig(provider: string): {
 			if (!process.env.OPENAI_API_KEY) {
 				throw new Error("OPENAI_API_KEY environment variable is not set.");
 			}
-			return { apiKey: process.env.OPENAI_API_KEY, apiUrl: undefined };
+			return { apiKey: process.env.OPENAI_API_KEY };
 		case "azure":
 			if (!process.env.AZURE_API_KEY || !process.env.AZURE_API_BASE_URL) {
 				throw new Error(

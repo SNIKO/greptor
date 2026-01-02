@@ -44,7 +44,7 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 	const queuedCount = await enqueueUnprocessedDocuments({
 		storage,
 		queue,
-		logger,
+		...(logger ? { logger } : {}),
 	});
 
 	const llm = createLlmClient(options.llmModel);
@@ -53,7 +53,7 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		metadataSchema: YAML.stringify(metadataSchema),
 		llm,
 		storage,
-		logger,
+		...(logger ? { logger } : {}),
 	};
 
 	startBackgroundWorkers({ ctx, queue, concurrency: options.workers ?? 1 });
@@ -79,6 +79,10 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 				ref: res.ref,
 				label: input.label,
 			});
+			return {
+				success: false,
+				message: "Document already exists.",
+			};
 		}
 
 		if (res.type === "error") {

@@ -34,7 +34,7 @@ export async function generateMetadataSchema(
 		response_format: zodResponseFormat(ResponseSchema, "metadata_fields"),
 	});
 
-	const parsed = completion.choices[0].message.parsed;
+	const parsed = completion.choices[0]?.message?.parsed;
 	if (!parsed?.metadata_fields) {
 		throw new Error("Failed to parse metadata schema from LLM response");
 	}

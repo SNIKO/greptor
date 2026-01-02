@@ -50,7 +50,7 @@ export async function extractMetadata(
 		messages,
 	});
 
-	const content = completion.choices[0].message.content;
+	const content = completion.choices[0]?.message?.content;
 	if (!content) {
 		throw new Error("Failed to extract metadata: empty LLM response");
 	}

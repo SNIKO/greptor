@@ -37,7 +37,7 @@ export async function chunk(
 		messages,
 	});
 
-	const content = completion.choices[0].message.content;
+	const content = completion.choices[0]?.message?.content;
 	if (!content) {
 		throw new Error("Failed to clean content: empty LLM response");
 	}
