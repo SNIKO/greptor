@@ -19,7 +19,10 @@ import { createFileStorage } from "./storage/file-storage.js";
 
 export interface Greptor {
 	eat: (input: GreptorAddInput) => Promise<GreptorAddResult>;
-	createSkill: (sources: string[]) => Promise<CreateSkillResult>;
+	createSkill: (
+		sources: string[],
+		overwrite: boolean,
+	) => Promise<CreateSkillResult>;
 }
 
 export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
@@ -95,7 +98,10 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		};
 	}
 
-	async function createSkill(sources: string[]): Promise<CreateSkillResult> {
+	async function createSkill(
+		sources: string[],
+		overwrite = false,
+	): Promise<CreateSkillResult> {
 		try {
 			logger?.info?.("Generating Claude Code skill", {
 				domain: options.topic,
@@ -107,6 +113,7 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 					sources,
 					baseDir: options.baseDir,
 					metadataSchema,
+					overwrite,
 				},
 				storage,
 			);

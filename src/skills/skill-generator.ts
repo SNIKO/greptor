@@ -4,12 +4,14 @@ import path from "node:path";
 import YAML from "yaml";
 import type { FileStorage } from "../storage/file-storage.js";
 import type { MetadataSchemaItem } from "../types.js";
+import { fileExists } from "../utils/file.js";
 
 export interface SkillGeneratorOptions {
 	domain: string;
 	sources: string[];
 	baseDir: string;
 	metadataSchema: MetadataSchemaItem[];
+	overwrite: boolean;
 }
 
 interface ChunkMetadata {
@@ -384,7 +386,11 @@ export async function generateSkill(
 
 	// Write skill file
 	const skillPath = path.join(skillDir, "SKILL.md");
-	await writeFile(skillPath, skillContent, "utf8");
+	const skillExists = await fileExists(skillPath);
+
+	if (!skillExists || options.overwrite) {
+		await writeFile(skillPath, skillContent, "utf8");
+	}
 
 	return { skillPath };
 }
