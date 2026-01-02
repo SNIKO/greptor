@@ -33,10 +33,6 @@ export function createFileStorage(baseDir: string): FileStorage {
 		return path.join(baseDir, layer, ref);
 	}
 
-	function encodeIdForFilename(id: string): string {
-		return id.trim().replace(/[^a-zA-Z0-9_-]+/g, "_");
-	}
-
 	function getYearMonthSegment(date: Date): string {
 		const year = String(date.getUTCFullYear());
 		const month = String(date.getUTCMonth() + 1).padStart(2, "0");
@@ -60,19 +56,15 @@ export function createFileStorage(baseDir: string): FileStorage {
 		label: string;
 		source: string;
 		author?: string;
-		id?: string;
 		timestamp?: Date;
 	}): DocumentRef {
 		const effectiveTimestamp = args.timestamp ?? new Date();
 		const isoDate = effectiveTimestamp.toISOString().split("T")[0];
-		const sageTitle = sanitize(args.label);
+		const safeTitle = sanitize(args.label);
 		const yearMonth = getYearMonthSegment(effectiveTimestamp);
 		const source = sanitize(args.source, 20);
 		const author = args.author ? sanitize(args.author, 50) : undefined;
-
-		const fileName = args.id
-			? `${isoDate}-${sageTitle}-${encodeIdForFilename(args.id)}.md`
-			: `${isoDate}-${sageTitle}.md`;
+		const fileName = `${isoDate}-${safeTitle}.md`;
 
 		return path.posix.join(
 			source,
@@ -100,7 +92,7 @@ export function createFileStorage(baseDir: string): FileStorage {
 		lines.push(yamlHeaderString.trim());
 		lines.push("---");
 		lines.push("");
-		lines.push(input.content.trimStart().trimEnd());
+		lines.push(input.content.trim());
 
 		return lines.join("\n");
 	}
@@ -149,19 +141,22 @@ export function createFileStorage(baseDir: string): FileStorage {
 				label: input.label,
 				source: input.source,
 				author: input.author,
-				id: input.id,
 				timestamp: input.creationDate,
 			});
 
 			const fullPath = resolveLayerPath("raw", ref);
 			if (await fileExists(fullPath)) {
-				return {
-					type: "duplicate",
-					ref,
-				};
+				if (!input.overwrite) {
+					return {
+						type: "error",
+						message:
+							"Document already exists for this label/date/source. Pass overwrite=true to replace it.",
+					};
+				}
+			} else {
+				await mkdir(path.dirname(fullPath), { recursive: true });
 			}
 
-			await mkdir(path.dirname(fullPath), { recursive: true });
 			await writeFile(fullPath, content, "utf8");
 			return {
 				type: "added",

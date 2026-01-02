@@ -39,7 +39,14 @@ export interface MetadataSchemaItem {
 
 export type SupportedFormat = "text";
 
-export type MetadataValueType = string | number | boolean | Date;
+export type MetadataValueType =
+	| string
+	| number
+	| boolean
+	| Date
+	| string[]
+	| number[]
+	| boolean[];
 
 export type Metadata = Record<string, MetadataValueType>;
 
@@ -52,16 +59,13 @@ export interface GreptorAddInput {
 	id?: string;
 	creationDate?: Date;
 	metadata?: Metadata;
+	overwrite?: boolean;
 }
 
-export type GreptorAddResult = {
-	success: boolean;
-	message: string;
-	ref?: DocumentRef;
-};
+export type GreptorAddResult =
+	| { success: true; message: string; ref: DocumentRef }
+	| { success: false; message: string };
 
-export type CreateSkillResult = {
-	success: boolean;
-	message: string;
-	skillPath?: string;
-};
+export type CreateSkillResult =
+	| { success: true; message: string; skillPath: string }
+	| { success: false; message: string };

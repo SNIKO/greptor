@@ -41,8 +41,8 @@ export function createProcessingQueue(): ProcessingQueue {
 
 function renderProcessedDocument(
 	metadata: Metadata,
-	chunkMetadata: unknown[],
-	chunks: string,
+	chunkMetadata: Metadata[],
+	chunkContent: string,
 ): string {
 	const combinedMetadata = {
 		...metadata,
@@ -60,11 +60,15 @@ function renderProcessedDocument(
 		},
 	});
 
-	const rendereedMetadata = doc.toString({ lineWidth: 200 });
+	const renderedMetadata = doc.toString({ lineWidth: 200 });
 
-	return ["---", rendereedMetadata.trimEnd(), "---", "", chunks.trim()].join(
-		"\n",
-	);
+	return [
+		"---",
+		renderedMetadata.trimEnd(),
+		"---",
+		"",
+		chunkContent.trim(),
+	].join("\n");
 }
 
 async function processDocument(
@@ -77,26 +81,30 @@ async function processDocument(
 
 	// 2. Chunk content with LLM
 	ctx.logger?.debug?.("Chunking document", { ref, step: "chunk" });
-	const chunks = await chunkDocument(content, ctx.domain, ctx.llm);
+	const chunkContent = await chunkDocument(content, ctx.domain, ctx.llm);
 
 	// 3. Extract metadata with LLM
 	ctx.logger?.debug?.("Extracting metadata", { ref, step: "metadata" });
-	const chunksMetadata = await extractMetadata(
-		chunks,
+	const chunkMetadata = await extractMetadata(
+		chunkContent,
 		ctx.domain,
 		ctx.metadataSchema,
 		ctx.llm,
 	);
 
 	// 4. Parse chunk metadata and render final content
-	const rendered = renderProcessedDocument(metadata, chunksMetadata, chunks);
+	const rendered = renderProcessedDocument(
+		metadata,
+		chunkMetadata,
+		chunkContent,
+	);
 
 	// 5. Save processed content
 	await ctx.storage.saveProcessedContent(ref, rendered);
 
 	ctx.logger?.info?.("Document processed", {
 		ref,
-		chunks: chunksMetadata.length,
+		chunks: chunkMetadata.length,
 		bytes: contentLength,
 	});
 }

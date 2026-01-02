@@ -81,10 +81,10 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 			});
 		}
 
-		if (res.type === "error" || !res.ref) {
+		if (res.type === "error") {
 			return {
 				success: false,
-				message: res.message || "Unknown error saving content.",
+				message: res.message,
 			};
 		}
 

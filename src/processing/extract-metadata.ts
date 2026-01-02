@@ -31,13 +31,13 @@ ${text}
 `;
 
 export async function extractMetadata(
-	cleanedContent: string,
+	chunkedContent: string,
 	domain: string,
 	metadataSchema: string,
 	llm: LlmClient,
 ): Promise<Metadata[]> {
 	const prompt = createExtractMetadataPrompt(
-		cleanedContent,
+		chunkedContent,
 		domain,
 		metadataSchema,
 	);

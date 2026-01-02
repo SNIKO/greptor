@@ -3,7 +3,16 @@ import { z } from "zod";
 export const MetadataFieldSchema = z.object({
 	name: z.string().describe("Metadata field name in snake_case"),
 	type: z
-		.enum(["string", "number", "boolean", "enum", "date"])
+		.enum([
+			"string",
+			"string[]",
+			"number",
+			"number[]",
+			"boolean",
+			"enum",
+			"enum[]",
+			"date",
+		])
 		.describe("Field data type"),
 	description: z.string().describe("Purpose and usage of this metadata field"),
 	enumValues: z

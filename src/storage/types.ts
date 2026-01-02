@@ -4,8 +4,7 @@
  */
 export type DocumentRef = string;
 
-export type DocumentAddResult = {
-	type: "added" | "duplicate" | "error";
-	message?: string;
-	ref?: DocumentRef;
-};
+export type DocumentAddResult =
+	| { type: "added"; ref: DocumentRef }
+	| { type: "duplicate"; ref: DocumentRef }
+	| { type: "error"; message: string };

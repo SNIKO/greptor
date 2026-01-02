@@ -12,6 +12,9 @@ Your goal is to produce a list of 5-10 **metadata fields** that are:
 3. **Extractable** — values can be identified directly from text (no scoring or inferred metrics like confidence, relevance, etc.). 
 4. **Reusable** — should support both keyword search (grep/ripgrep) and structured filtering.
 
+Allowed field types: string, string[], number, number[], boolean, enum, enum[], date.
+Use array types when multiple values are expected per chunk.
+
 **TOPIC**: ${topic}
 `;
 
