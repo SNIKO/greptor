@@ -2,14 +2,19 @@ import type { Dirent } from "node:fs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import YAML from "yaml";
-import type { DocumentRef, GreptorAddInput, Metadata } from "../types.js";
+import type {
+	DocumentRef,
+	DocumentAddResult as DocumentSaveResult,
+} from "../storage/types.js";
+import type { GreptorAddInput, Metadata } from "../types.js";
+import { fileExists } from "../utils/file.js";
 
 export interface FileStorage {
 	readonly baseDir: string;
 	readonly rawContentPath: string;
 	readonly processedContentPath: string;
 
-	saveRawContent(input: GreptorAddInput): Promise<DocumentRef>;
+	saveRawContent(input: GreptorAddInput): Promise<DocumentSaveResult>;
 	readRawContent(
 		ref: DocumentRef,
 	): Promise<{ metadata: Metadata; content: string }>;
@@ -32,13 +37,13 @@ export function createFileStorage(baseDir: string): FileStorage {
 		return id.trim().replace(/[^a-zA-Z0-9_-]+/g, "_");
 	}
 
-	function getMonthSegments(date: Date): { year: string; month: string } {
+	function getYearMonthSegment(date: Date): string {
 		const year = String(date.getUTCFullYear());
 		const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-		return { year, month };
+		return `${year}-${month}`;
 	}
 
-	function sanitizeFileName(name: string, maxLength = 50): string {
+	function sanitize(name: string, maxLength = 50): string {
 		const trimmed = name.trim();
 		let sanitized = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 		sanitized = sanitized.replace(/^-+/, "").replace(/-+$/, "");
@@ -53,28 +58,40 @@ export function createFileStorage(baseDir: string): FileStorage {
 
 	function generateDocumentRef(args: {
 		label: string;
+		source: string;
+		author?: string;
 		id?: string;
 		timestamp?: Date;
 	}): DocumentRef {
 		const effectiveTimestamp = args.timestamp ?? new Date();
 		const isoDate = effectiveTimestamp.toISOString().split("T")[0];
-		const sageTitle = sanitizeFileName(args.label);
-		const { year, month } = getMonthSegments(effectiveTimestamp);
+		const sageTitle = sanitize(args.label);
+		const yearMonth = getYearMonthSegment(effectiveTimestamp);
+		const source = sanitize(args.source, 20);
+		const author = args.author ? sanitize(args.author, 50) : undefined;
 
 		const fileName = args.id
 			? `${isoDate}-${sageTitle}-${encodeIdForFilename(args.id)}.md`
 			: `${isoDate}-${sageTitle}.md`;
 
-		return path.posix.join(year, month, fileName);
+		return path.posix.join(
+			source,
+			...(author ? [author] : []),
+			yearMonth,
+			fileName,
+		);
 	}
 
 	function buildRawFileContent(input: GreptorAddInput): string {
 		const yamlHeader = {
+			id: input.id,
 			title: input.label,
 			created_at: input.creationDate
 				? input.creationDate.toISOString()
 				: new Date().toISOString(),
 			...input.metadata,
+			source: input.source,
+			...(input.author ? { author: input.author } : {}),
 		};
 
 		const yamlHeaderString = YAML.stringify(yamlHeader);
@@ -123,19 +140,41 @@ export function createFileStorage(baseDir: string): FileStorage {
 		return results;
 	}
 
-	async function saveRawContent(input: GreptorAddInput): Promise<DocumentRef> {
-		const content = buildRawFileContent(input);
-		const ref = generateDocumentRef({
-			label: input.label,
-			id: input.id,
-			timestamp: input.creationDate,
-		});
+	async function saveRawContent(
+		input: GreptorAddInput,
+	): Promise<DocumentSaveResult> {
+		try {
+			const content = buildRawFileContent(input);
+			const ref = generateDocumentRef({
+				label: input.label,
+				source: input.source,
+				author: input.author,
+				id: input.id,
+				timestamp: input.creationDate,
+			});
 
-		const fullPath = resolveLayerPath("raw", ref);
-		await mkdir(path.dirname(fullPath), { recursive: true });
-		await writeFile(fullPath, content, "utf8");
+			const fullPath = resolveLayerPath("raw", ref);
+			if (await fileExists(fullPath)) {
+				return {
+					type: "duplicate",
+					ref,
+				};
+			}
 
-		return ref;
+			await mkdir(path.dirname(fullPath), { recursive: true });
+			await writeFile(fullPath, content, "utf8");
+			return {
+				type: "added",
+				ref,
+			};
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error ? error.message : String(error);
+			return {
+				type: "error",
+				message: errorMessage,
+			};
+		}
 	}
 
 	async function readRawContent(

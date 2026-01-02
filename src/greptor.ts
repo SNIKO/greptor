@@ -6,6 +6,7 @@ import type {
 } from "./types.js";
 
 import path from "node:path";
+import YAML from "yaml";
 import { createLlmClient } from "./llm/llm-factory.js";
 import { initializeMetadataSchema } from "./metadata-schema/initialize.js";
 import {
@@ -46,7 +47,7 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 	const llm = createLlmClient(options.llmModel);
 	const ctx = {
 		domain: options.topic,
-		metadataSchema,
+		metadataSchema: YAML.stringify(metadataSchema),
 		llm,
 		storage,
 		logger,
@@ -68,25 +69,30 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 			};
 		}
 
-		try {
-			const ref = await storage.saveRawContent(input);
-			queue.enqueue(ref);
-			logger?.info?.("Document ingested", { ref, label: input.label });
+		const res = await storage.saveRawContent(input);
 
-			return {
-				success: true,
-				message: "Content added.",
-				ref,
-			};
-		} catch (error) {
-			const errorMessage =
-				error instanceof Error ? error.message : String(error);
-			logger?.error?.("Ingestion failed", { err: error, label: input.label });
+		if (res.type === "duplicate") {
+			logger?.warn?.("Attempt to add duplicate document", {
+				ref: res.ref,
+				label: input.label,
+			});
+		}
+
+		if (res.type === "error" || !res.ref) {
 			return {
 				success: false,
-				message: errorMessage,
+				message: res.message || "Unknown error saving content.",
 			};
 		}
+
+		queue.enqueue(res.ref);
+		logger?.info?.("Document ingested", { ref: res.ref, label: input.label });
+
+		return {
+			success: true,
+			message: "Content added.",
+			ref: res.ref,
+		};
 	}
 
 	async function createSkill(sources: string[]): Promise<CreateSkillResult> {
@@ -100,6 +106,7 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 					domain: options.topic,
 					sources,
 					baseDir: options.baseDir,
+					metadataSchema,
 				},
 				storage,
 			);

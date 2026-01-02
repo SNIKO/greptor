@@ -1,7 +1,7 @@
 import YAML from "yaml";
 import type { LlmClient } from "../llm/llm-factory.js";
-import type { FileStorage } from "../storage/file-storage.js";
-import type { DocumentRef, Logger, Metadata } from "../types.js";
+import type { DocumentRef, FileStorage } from "../storage/index.js";
+import type { Logger, Metadata } from "../types.js";
 import { chunk as chunkDocument } from "./chunk.js";
 import { extractMetadata } from "./extract-metadata.js";
 

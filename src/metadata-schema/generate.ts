@@ -1,7 +1,7 @@
 import { zodResponseFormat } from "openai/helpers/zod";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
 import { createLlmClient } from "../llm/llm-factory.js";
-import type { MetadataSchemaItem } from "../types.js";
+import type { MetadataSchema, MetadataSchemaItem } from "../types.js";
 import { ResponseSchema } from "./types.js";
 
 const PROMPT_TEMPLATE = (topic: string) => `
@@ -18,7 +18,7 @@ Your goal is to produce a list of 5-10 **metadata fields** that are:
 export async function generateMetadataSchema(
 	topic: string,
 	llmModel: string,
-): Promise<MetadataSchemaItem[]> {
+): Promise<MetadataSchema> {
 	const { client, model } = createLlmClient(llmModel);
 
 	const messages: ChatCompletionMessageParam[] = [
