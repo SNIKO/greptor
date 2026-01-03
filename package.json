@@ -28,7 +28,9 @@
 		"demo": "bun run scripts/test.ts",
 		"typecheck": "tsc --noEmit -p tsconfig.json",
 		"lint": "biome check .",
-		"fix": "biome format --write"
+		"fix": "biome format --write",
+		"changeset": "bunx changeset",
+		"version": "bunx changeset version"
 	},
 	"engines": {
 		"node": ">=18.0.0",
