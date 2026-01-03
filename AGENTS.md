@@ -11,7 +11,7 @@ The core philosophy is **"Minimal Processing + Maximal grep-ability"**: ingest r
 -   **Text Ingestion**: Accept plain text input (current implementation).
 -   **Standardized Output**: Store content as Markdown with YAML frontmatter.
 -   **Time-based Organization**: Store files in a date-based directory structure:  
-    `content/{raw|processed}/{source}/{author?}/{YYYY-MM}/{YYYY-MM-DD-label}.md`
+    `content/{raw|processed}/{source}/{publisher?}/{YYYY-MM}/{YYYY-MM-DD-label}.md`
 -   **Lightweight Enrichment**: Use LLMs to chunk content and extract metadata based on a user-defined or auto-generated schema.
 -   **Denormalized Storage**: Embed metadata directly in YAML frontmatter and include chunk headers in content to maximize grep-ability.
 -   **"Eat" API**: A simple, unified entry point (`eat` method) for users to feed data into the system.

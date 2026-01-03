@@ -57,7 +57,7 @@ const greptor = await createGreptor({
 await greptor.eat({
   id: 'QwwVJfvfqN8',
   source: 'youtube',
-  author: '@JosephCarlsonShow',
+  publisher: '@JosephCarlsonShow',
   format: 'text',
   label: 'Top Five AI Stocks I\'m Buying Now',
   content: '{fetch and populate video transcript here}',
@@ -72,7 +72,7 @@ await greptor.eat({
 await greptor.eat({
   id: 'tesla_reports_418227_deliveries_for_the_fourth',
   source: 'reddit',
-  author: 'investing',  // For Reddit, author can be the subreddit name
+  publisher: 'investing',  // For Reddit, publisher is the subreddit name
   format: 'text',
   label: 'Tesla reports 418,227 deliveries for the fourth quarter, down 16%',
   content: '{fetch and populate Reddit post with comments here}',
@@ -160,7 +160,7 @@ Here's an example of a processed file:
 ---
 title: "NVIDIA Q4 2024 Earnings: AI Boom Continues"
 source: "youtube"
-author: "Wall Street Millennial"
+publisher: "Wall Street Millennial"
 date: 2025-11-15
 ticker: "NVDA"
 videoId: "dQw4w9WgXcQ"

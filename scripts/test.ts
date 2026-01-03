@@ -251,7 +251,7 @@ import type { Metadata } from "../src/types.js";
 	// 	creationDate: new Date(),
 	// 	metadata: {
 	// 		source: "youtube",
-	// 		author: "@theelephantintheroom-podcast",
+	// 		publisher: "@theelephantintheroom-podcast",
 	// 	},
 	// });
 

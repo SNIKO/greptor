@@ -1,7 +1,7 @@
 import type {
 	CreateSkillResult,
-	GreptorAddInput,
-	GreptorAddResult,
+	GreptorEatInput,
+	GreptorEatResult,
 	GreptorOptions,
 } from "./types.js";
 
@@ -18,7 +18,7 @@ import { generateSkill } from "./skills/skill-generator.js";
 import { createFileStorage } from "./storage/file-storage.js";
 
 export interface Greptor {
-	eat: (input: GreptorAddInput) => Promise<GreptorAddResult>;
+	eat: (input: GreptorEatInput) => Promise<GreptorEatResult>;
 	createSkill: (
 		sources: string[],
 		overwrite: boolean,
@@ -63,7 +63,7 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		queued: queuedCount,
 	});
 
-	async function eat(input: GreptorAddInput): Promise<GreptorAddResult> {
+	async function eat(input: GreptorEatInput): Promise<GreptorEatResult> {
 		if (input.format !== "text") {
 			logger?.warn?.("Unsupported format", { format: input.format });
 			return {

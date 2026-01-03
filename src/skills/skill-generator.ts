@@ -114,7 +114,7 @@ Content from ${sources.join(", ")} has been fetched, chunked, enriched with sear
 ${fileStorage.baseDir}/
 ├── processed/       # Cleaned, search-optimized content with metadata
 │   └── {source}/    # ${sources.join(", ")}, etc.
-│       └── {author?}/
+│       └── {publisher?}/
 │           └── YYYY-MM/
 │               └── YYYY-MM-DD-label.md
 └── raw/             # Original raw content as ingested (mirrors processed/)
@@ -133,7 +133,7 @@ Chunked content follows the frontmatter, with chunk IDs as section headers.
 ---
 title: "Document Title"
 source: "Source Name"
-author: "Author Name"
+publisher: "Publisher Name"
 <other metadata fields>
 chunks:
   - id: c01
@@ -219,7 +219,7 @@ ${rgExamples}
 - **Primary source**: Always use the \`processed/\` directory for searches; only fall back to \`raw/\` if necessary
 - **Metadata first**: Start with metadata filtering before full-text content search
 - **Context capture**: Use \`-B\` and \`-A\` flags to capture surrounding lines for context without reading entire chunks
-- **Citation style**: When referencing content, cite by source name, author, and title—never expose internal structure like chunk IDs or file paths to the user
+- **Citation style**: When referencing content, cite by source name, publisher, and title—never expose internal structure like chunk IDs or file paths to the user
 `;
 }
 

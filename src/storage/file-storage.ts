@@ -6,7 +6,7 @@ import type {
 	DocumentRef,
 	DocumentAddResult as DocumentSaveResult,
 } from "../storage/types.js";
-import type { GreptorAddInput, Metadata } from "../types.js";
+import type { GreptorEatInput, Metadata } from "../types.js";
 import { fileExists } from "../utils/file.js";
 
 export interface FileStorage {
@@ -14,7 +14,7 @@ export interface FileStorage {
 	readonly rawContentPath: string;
 	readonly processedContentPath: string;
 
-	saveRawContent(input: GreptorAddInput): Promise<DocumentSaveResult>;
+	saveRawContent(input: GreptorEatInput): Promise<DocumentSaveResult>;
 	readRawContent(
 		ref: DocumentRef,
 	): Promise<{ metadata: Metadata; content: string }>;
@@ -59,7 +59,7 @@ export function createFileStorage(baseDir: string): FileStorage {
 	function generateDocumentRef(args: {
 		label: string;
 		source: string;
-		author?: string;
+		publisher?: string;
 		timestamp?: Date;
 	}): DocumentRef {
 		const effectiveTimestamp = args.timestamp ?? new Date();
@@ -67,20 +67,20 @@ export function createFileStorage(baseDir: string): FileStorage {
 		const safeTitle = sanitize(args.label, 50, "untitled");
 		const yearMonth = getYearMonthSegment(effectiveTimestamp);
 		const source = sanitize(args.source, 20, "unknown");
-		const author = args.author
-			? sanitize(args.author, 50, "unknown")
+		const publisher = args.publisher
+			? sanitize(args.publisher, 50, "unknown")
 			: undefined;
 		const fileName = `${isoDate}-${safeTitle}.md`;
 
 		return path.posix.join(
 			source,
-			...(author ? [author] : []),
+			...(publisher ? [publisher] : []),
 			yearMonth,
 			fileName,
 		);
 	}
 
-	function buildRawFileContent(input: GreptorAddInput): string {
+	function buildRawFileContent(input: GreptorEatInput): string {
 		const yamlHeader = {
 			id: input.id,
 			title: input.label,
@@ -89,7 +89,7 @@ export function createFileStorage(baseDir: string): FileStorage {
 				: new Date().toISOString(),
 			...input.metadata,
 			source: input.source,
-			...(input.author ? { author: input.author } : {}),
+			...(input.publisher ? { publisher: input.publisher } : {}),
 		};
 
 		const yamlHeaderString = YAML.stringify(yamlHeader);
@@ -139,14 +139,14 @@ export function createFileStorage(baseDir: string): FileStorage {
 	}
 
 	async function saveRawContent(
-		input: GreptorAddInput,
+		input: GreptorEatInput,
 	): Promise<DocumentSaveResult> {
 		try {
 			const content = buildRawFileContent(input);
 			const ref = generateDocumentRef({
 				label: input.label,
 				source: input.source,
-				...(input.author ? { author: input.author } : {}),
+				...(input.publisher ? { publisher: input.publisher } : {}),
 				...(input.creationDate ? { timestamp: input.creationDate } : {}),
 			});
 

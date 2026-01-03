@@ -46,19 +46,19 @@ export type MetadataValueType =
 
 export type Metadata = Record<string, MetadataValueType>;
 
-export interface GreptorAddInput {
+export interface GreptorEatInput {
 	content: string;
 	format: SupportedFormat;
 	label: string;
 	source: string;
-	author?: string;
+	publisher?: string;
 	id?: string;
 	creationDate?: Date;
 	metadata?: Metadata;
 	overwrite?: boolean;
 }
 
-export type GreptorAddResult =
+export type GreptorEatResult =
 	| { success: true; message: string; ref: DocumentRef }
 	| { success: false; message: string };
 

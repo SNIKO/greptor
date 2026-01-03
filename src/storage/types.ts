@@ -1,6 +1,6 @@
 /**
  * Reference to a stored document under Greptor's data directory.
- * A relative path like `source/author/2025-12/2025-12-06-some-label.md`
+ * A relative path like `source/publisher/2025-12/2025-12-06-some-label.md`
  */
 export type DocumentRef = string;
 
