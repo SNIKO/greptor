@@ -2,12 +2,12 @@
 	"name": "greptor",
 	"version": "0.1.0",
 	"type": "module",
-	"description": "A high-performance content ingestion and indexing library designed to make unstructured data easily searchable with grep tools.",
+	"description": "Transform messy, unstructured text into clean, grep-friendly data for agentic search workflows.",
 	"license": "MIT",
-	"author": "Niko",
+	"author": "Sergii Vashchyshchuk",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/niko/greptor.git"
+		"url": "git+https://github.com/sniko/greptor.git"
 	},
 	"keywords": ["grep", "search", "ingestion", "llm", "rag", "markdown", "yaml"],
 	"main": "./dist/index.js",
@@ -36,6 +36,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.3",
+		"@changesets/cli": "^2.29.8",
 		"@types/bun": "latest",
 		"@types/node": "^22.10.2",
 		"typescript": "^5.6.3"
