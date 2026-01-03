@@ -59,7 +59,7 @@ function getProviderConfig(provider: string): {
 		case "ollama":
 			return {
 				apiKey: "ollama",
-				apiUrl: "http://172.25.32.1:11434/v1",
+				apiUrl: "http://localhost:11434/v1",
 			};
 		default:
 			throw new Error(`Unsupported provider: ${provider}`);

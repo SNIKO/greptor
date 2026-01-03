@@ -1,23 +1,21 @@
 # Greptor Library Design & Guidelines
 
 ## 1. Project Overview
-**Greptor** (Grep + Raptor) is a high-performance content ingestion and indexing library designed to make unstructured data (text, PDF, DOCX, Excel) easily searchable via tools like `ripgrep` and blob search.
+**Greptor** (Grep + Raptor) is a high-performance content ingestion and indexing library designed to make unstructured **text** easily searchable via tools like `ripgrep`.
 
-The core philosophy is **"Minimal Processing + Maximal grep-ability"**: ingest raw content, apply lightweight enrichment (metadata extraction, normalization), and denormalize everything into a grep-friendly format. No heavy preprocessing like clustering, entity dossiers, or precomputed indices. The LLM synthesizes answers at query time from clean, metadata-rich files.
+The core philosophy is **"Minimal Processing + Maximal grep-ability"**: ingest raw content, apply lightweight enrichment (chunking + metadata extraction), and denormalize everything into a grep-friendly format. No heavy preprocessing like clustering or precomputed indices. The LLM synthesizes answers at query time from clean, metadata-rich files.
 
 ## 2. Library Requirements
 
 ### Functional Requirements
--   **Multi-format Ingestion**: Accept input in various formats:
-    -   Plain Text
-    -   PDF (Binary)
-    -   DOCX (Binary)
-    -   Excel (Binary)
--   **Standardized Output**: Convert all inputs into Markdown files with YAML frontmatter for metadata.
--   **Time-based Organization**: Organize files in a simple date-based directory structure (e.g., `data/raw/YYYY/YYYY-MM-DD-label.md`).
--   **Lightweight Enrichment**: Extract metadata (entities, topics, sentiment, keywords) using LLMs based on a user-defined or auto-generated schema. Add short summaries for context.
--   **Denormalized Storage**: Embed all metadata directly in files via YAML frontmatter, HTML comments, and headings to maximize grep-ability.
+-   **Text Ingestion**: Accept plain text input (current implementation).
+-   **Standardized Output**: Store content as Markdown with YAML frontmatter.
+-   **Time-based Organization**: Store files in a date-based directory structure:  
+    `content/{raw|processed}/{source}/{author?}/{YYYY-MM}/{YYYY-MM-DD-label}.md`
+-   **Lightweight Enrichment**: Use LLMs to chunk content and extract metadata based on a user-defined or auto-generated schema.
+-   **Denormalized Storage**: Embed metadata directly in YAML frontmatter and include chunk headers in content to maximize grep-ability.
 -   **"Eat" API**: A simple, unified entry point (`eat` method) for users to feed data into the system.
+-   **Skill Generation**: Generate a Claude Code skill file for searching the processed data.
 
 ### Non-Functional Requirements
 -   **Grep-Friendly**: The storage format must be optimized for command-line search tools (`ripgrep`, `grep`).
@@ -29,29 +27,31 @@ The core philosophy is **"Minimal Processing + Maximal grep-ability"**: ingest r
 
 ### Architecture
 The library operates on a simple, grep-optimized storage model:
-1.  **Raw Layer**: Immediate storage of ingested content as Markdown in a time-based folder structure (e.g., `data/raw/YYYY/MM/YYYY-MM-DD-label.md`).
-2.  **Enrichment Layer**: Lightweight background processing that reads raw files, enriches them, and writes to a parallel `processed` directory structure (e.g., `data/processed/YYYY/MM/YYYY-MM-DD-label.md`).
+1.  **Raw Layer**: Immediate storage of ingested content as Markdown in `content/raw/...`.
+2.  **Enrichment Layer**: Background processing that reads raw files, enriches them, and writes to `content/processed/...`.
 
 ### Key Components
--   **`Greptor` Class**: The main facade.
+-   **`Greptor` Factory**: The main facade returned by `createGreptor`.
     -   `eat(input)`: Accepts content, writes to the Raw Layer, and queues for enrichment.
+    -   `createSkill(sources, overwrite)`: Generates a skill file for search guidance.
 -   **`FileStorage`**: Handles file I/O using opaque `DocumentRef`s, ensuring separation between `raw` and `processed` layers.
--   **Background Processor**: In-memory worker that processes the queue and hydrates from the file system on startup.
--   **`MetadataSchemaGenerator`**: Dynamic schema generation using LLMs if the user doesn't provide one.
+-   **Background Processor**: In-memory worker queue that processes pending documents.
+-   **Metadata Schema**: Persisted in `content/metadata-schema.yaml` and generated with LLMs if not provided.
+-   **LLM Client**: Provider/model abstraction for OpenAI-compatible APIs (OpenAI, Azure OpenAI, Ollama).
 
 ### Data Flow
-1.  **User** calls `greptor.eat({ content, label, metadata })`.
+1.  **User** calls `greptor.eat({ content, format: "text", label, source, ... })`.
 2.  **Greptor** delegates to `FileStorage` to save raw content.
-3.  **FileStorage** writes to `data/raw/...` and returns a `DocumentRef`.
+3.  **FileStorage** writes to `content/raw/...` and returns a `DocumentRef`.
 4.  **Greptor** enqueues the `DocumentRef` into the in-memory processing queue.
-5.  **Background Processor** picks up items (or finds unprocessed files on disk at startup).
-6.  **LLM** chunks content and extracts metadata (entities, topics, sentiment) based on the schema.
-7.  **Processor** writes the enriched content to the `processed` layer, embedding metadata in YAML frontmatter.
+5.  **Background Processor** picks up items (and also scans disk for unprocessed files on startup).
+6.  **LLM** chunks content and extracts per-chunk metadata based on the schema.
+7.  **Processor** writes the enriched content to `content/processed/...`, embedding metadata in YAML frontmatter and leaving chunked content in the body.
 
 ## 4. Coding Conventions & Best Practices
 
 ### Core Principles
--   **Runtime**: **Bun** is the required runtime. Use `bun` for scripts, tests, and package management.
+-   **Runtime**: **Bun** is the required runtime for scripts and tooling.
 -   **Language**: **TypeScript** (Modern, Strict).
 -   **KISS (Keep It Simple, Stupid)**:
     -   Prefer simple functions over complex class hierarchies.
@@ -62,25 +62,41 @@ The library operates on a simple, grep-optimized storage model:
 ### Development Standards
 -   **Tooling**:
     -   Linting/Formatting: **Biome** (`biome.json`).
-    -   Testing: `bun test`.
+    -   Typecheck: `bun run typecheck`.
+    -   Demo Script: `bun run scripts/test.ts`.
 -   **Readability**:
     -   Code should be self-documenting.
     -   Use descriptive variable names.
     -   Comments should explain *why*, not *what*.
 -   **Async/Await**: Use modern async patterns; avoid callback hell.
 -   **Error Handling**: Use typed errors where possible; fail gracefully in background processes without crashing the main app.
--   **Dependencies**: Keep dependencies minimal. Use native Bun APIs (e.g., `Bun.file`, `Bun.write`) instead of Node.js `fs` where appropriate, but maintain compatibility if necessary.
+-   **Dependencies**: Keep dependencies minimal. Node-compatible APIs (`node:fs/promises`) are used for portability; prefer simple abstractions.
 
 ### Directory Structure
 ```
 src/
-├── greptor.ts          # Main entry point
-├── types.ts            # Shared interfaces
-├── metadata-schema-generator.ts
-├── llm/                # LLM integration logic
-├── processing/         # Background workers and pipeline steps
-├── storage/            # File system abstraction (FileStorage)
-└── utils/              # Helper functions
+├── index.ts                  # Library exports
+├── greptor.ts                # Main entry point (factory)
+├── types.ts                  # Shared interfaces
+├── metadata-schema/
+│   ├── initialize.ts
+│   ├── generate.ts
+│   └── types.ts
+├── llm/
+│   └── llm-factory.ts
+├── processing/
+│   ├── processor.ts
+│   ├── chunk.ts
+│   └── extract-metadata.ts
+├── storage/
+│   ├── file-storage.ts
+│   ├── types.ts
+│   └── index.ts
+├── skills/
+│   └── skill-generator.ts
+└── utils/
+    ├── file.ts
+    └── hash.ts
 ```
 
-**Version**: 3.0.0 | **Ratified**: 2025-12-06 | **Last Amended**: 2025-12-06
+**Version**: 0.1.0 | **Ratified**: 2026-01-02 | **Last Amended**: 2026-01-02
