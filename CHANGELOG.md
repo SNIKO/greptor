@@ -1,5 +1,11 @@
 # greptor
 
+## 0.2.1
+
+### Patch Changes
+
+- 548ff21: chore: add temp debug output
+
 ## 0.2.0
 
 ### Minor Changes
