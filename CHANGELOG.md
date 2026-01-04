@@ -1,5 +1,11 @@
 # greptor
 
+## 0.4.0
+
+### Minor Changes
+
+- 4e04f49: feat: revise content tagging strategy and revise llm prompts
+
 ## 0.3.0
 
 ### Minor Changes
