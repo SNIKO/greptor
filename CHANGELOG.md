@@ -1,5 +1,11 @@
 # greptor
 
+## 0.3.0
+
+### Minor Changes
+
+- 278c636: feat: use llm models from AI SDK
+
 ## 0.2.1
 
 ### Patch Changes
