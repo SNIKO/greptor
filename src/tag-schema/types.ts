@@ -17,15 +17,9 @@ export const TagFieldSchema = z.object({
 	description: z.string().describe("Purpose and usage of this tag field"),
 	enumValues: z
 		.array(z.string())
-		.optional()
 		.nullable()
 		.describe("Full list of enum values for enum types."),
 });
 
-export const ResponseSchema = z.object({
-	tag_fields: z
-		.array(TagFieldSchema)
-		.min(5)
-		.max(10)
-		.describe("List of tag fields for the given topic"),
-});
+export type TagSchemaItem = z.infer<typeof TagFieldSchema>;
+export type TagSchema = TagSchemaItem[];

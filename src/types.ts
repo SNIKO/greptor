@@ -1,5 +1,10 @@
 import type { LanguageModel } from "ai";
 import type { DocumentRef } from "./storage/types.js";
+import type { TagSchema } from "./tag-schema/types.js";
+export type {
+	TagSchema,
+	TagSchemaItem,
+} from "./tag-schema/types.js";
 
 export interface Logger {
 	debug?: (message: string, ...meta: unknown[]) => void;
@@ -15,23 +20,6 @@ export interface GreptorOptions {
 	workers?: number;
 	tagSchema?: TagSchema;
 	logger?: Logger;
-}
-
-export type TagSchema = TagSchemaItem[];
-
-export interface TagSchemaItem {
-	name: string;
-	type:
-		| "string"
-		| "string[]"
-		| "number"
-		| "number[]"
-		| "enum"
-		| "enum[]"
-		| "date"
-		| "boolean";
-	description: string;
-	enumValues?: string[];
 }
 
 export type SupportedFormat = "text";

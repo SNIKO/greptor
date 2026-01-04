@@ -9,22 +9,10 @@
 		"type": "git",
 		"url": "git+https://github.com/sniko/greptor.git"
 	},
-	"keywords": [
-		"grep",
-		"search",
-		"ingestion",
-		"llm",
-		"rag",
-		"markdown",
-		"yaml"
-	],
+	"keywords": ["grep", "search", "ingestion", "llm", "rag", "markdown", "yaml"],
 	"main": "./dist/index.js",
 	"sideEffects": false,
-	"files": [
-		"dist",
-		"README.md",
-		"LICENSE"
-	],
+	"files": ["dist", "README.md", "LICENSE"],
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",

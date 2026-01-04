@@ -186,59 +186,112 @@ The demand for AI accelerators continues to outpace supply...
 
 Your "index" is the YAML frontmatter (document-level) plus the per-chunk tag lines. Agents can search it deterministically.
 
-**Search examples**:
+**Basic search examples**:
 
 ```bash
-# Find all bullish sentiment for TSLA stock (capture full tag block)
-rg -n -C 6 "ticker=TSLA" content/processed | rg "sentiment=bullish"
+# Simple tag search with context
+rg -n -C 6 "ticker=NVDA" content/processed/
 
-# Count tag values for a field (e.g., ticker)
-rg -n -C 6 "ticker=" content/processed | rg -o "ticker=[^\\n]+" | cut -d= -f2 | tr ',' '\n' | sort | uniq -c | sort -rn | head -20
+# Search for any value in a tag field
+rg -n -C 6 "sentiment=" content/processed/
 
-# What companies does a specific YouTuber discuss?
-rg -n -C 6 "company=" content/processed/youtube/JosephCarlsonShow
+# Case-insensitive full-text search
+rg -i -n -C 3 "artificial intelligence" content/processed/
 
-# Find AI-related narratives with strong buy recommendations
-rg -n -C 6 "narrative=*ai*" content/processed | rg "recommendation=strong_buy"
+# Search within a specific source
+rg -n -C 6 "sector=technology" content/processed/youtube/
+```
 
-# Technology sector stocks with bullish sentiment in December 2025
-rg -n -C 6 "sector=technology" content/processed --glob "**/2025-12/*.md" | rg "sentiment=bullish"
+**Date-filtered searches**:
 
-# Find dividend investment style discussions
-rg -n -C 6 "investment_style=dividend" content/processed | head -10
+```bash
+# Content from December 2025
+rg -n -C 6 "ticker=TSLA" content/processed/ --glob "**/2025-12/*.md"
 
-# Bearish sentiment on large-cap stocks
-rg -n -C 6 "market_cap=large_cap" content/processed | rg "sentiment=bearish"
+# Q4 2025 content
+rg -n -C 6 "sentiment=bullish" content/processed/ --glob "**/2025-1[0-2]/*.md"
 
-# List all tickers mentioned with their sentiment (grab tag lines only)
-rg -n "ticker=" content/processed
+# Specific month and source
+rg -n -C 6 "asset_type=etf" content/processed/reddit/ --glob "**/2025-11/*.md"
+```
 
+**Combined tag filters**:
 
-# Combine multiple filters: tech stocks with strong buy in specific timeframe
-rg -n -C 6 "sector=technology" content/processed --glob "**/2025-11/*.md" | \
-  rg "recommendation=strong_buy" | rg -o "ticker=[^\\n]+" | cut -d= -f2 | tr ',' '\n' | sort | uniq -c
+```bash
+# Match chunks with two specific tags (using file list)
+rg -l "sector=technology" content/processed/ | xargs rg -n -C 6 "sentiment=bullish"
+
+# Pipeline filter for complex queries
+rg -n -C 6 "ticker=AAPL" content/processed/ | rg "recommendation=.*buy"
+
+# Three-way filter: tech stocks with bullish sentiment and buy recommendation
+rg -l "sector=technology" content/processed/ | xargs rg -l "sentiment=bullish" | xargs rg -n -C 6 "recommendation=buy"
+
+# Find AI narrative discussions with specific tickers
+rg -n -C 6 "narrative=.*ai" content/processed/ | rg "ticker=NVDA\|ticker=.*,NVDA"
+```
+
+**Discovery and exploration**:
+
+```bash
+# List all unique tickers mentioned
+rg -o "ticker=[^\n]+" content/processed/ | cut -d= -f2 | tr ',' '\n' | sort -u
+
+# Count occurrences of each sentiment
+rg -o "sentiment=[^\n]+" content/processed/ | cut -d= -f2 | sort | uniq -c | sort -rn
+
+# Top 20 most discussed companies
+rg -o "company=[^\n]+" content/processed/ | cut -d= -f2 | tr ',' '\n' | sort | uniq -c | sort -rn | head -20
+
+# Find all files discussing dividend investing
+rg -l "investment_style=dividend" content/processed/
+
+# See what narratives exist in the data
+rg -o "narrative=[^\n]+" content/processed/ | cut -d= -f2 | tr ',' '\n' | sort -u
 ```
 
 **Analysis patterns**:
 
 ```bash
-# Aggregate sentiment distribution
-rg -o "sentiment=" content/processed | rg -o "sentiment=[^\\n]+" | cut -d= -f2 | tr ',' '\n' | sort | uniq -c
+# Sentiment distribution for a specific ticker
+rg -n -C 6 "ticker=TSLA" content/processed/ | rg -o "sentiment=[^\n]+" | cut -d= -f2 | sort | uniq -c
 
 # Most discussed sectors
-rg -o "sector=" content/processed | rg -o "sector=[^\\n]+" | cut -d= -f2 | tr ',' '\n' | sort | uniq -c | sort -rn
+rg -o "sector=[^\n]+" content/processed/ | cut -d= -f2 | tr ',' '\n' | sort | uniq -c | sort -rn
 
 # Track narrative evolution over time
 for month in 2025-{10..12}; do
   echo "=== $month ==="
-  rg -o "narrative=" content/processed --glob "**/$month-*/*.md" | rg -o "narrative=[^\\n]+" | cut -d= -f2 | tr ',' '\n' | sort | uniq -c | sort -rn | head -5
+  rg -o "narrative=[^\n]+" content/processed/ --glob "**/$month/*.md" | cut -d= -f2 | tr ',' '\n' | sort | uniq -c | sort -rn | head -5
 done
 
-# Compare sentiment on specific stock across sources
+# Compare sentiment across sources for a stock
 for source in youtube reddit; do
   echo "=== $source ==="
-  rg -n -C 6 "ticker=AAPL" content/processed/$source | rg -o "sentiment=[^\\n]+" | cut -d= -f2 | tr ',' '\n' | sort | uniq -c
+  rg -n -C 6 "ticker=AAPL" content/processed/$source/ | rg -o "sentiment=[^\n]+" | cut -d= -f2 | tr ',' '\n' | sort | uniq -c
 done
+
+# Find all strong buy recommendations by sector
+for sector in technology healthcare financials; do
+  echo "=== $sector ==="
+  rg -l "sector=$sector" content/processed/ | xargs rg -n -C 3 "recommendation=strong_buy" | head -5
+done
+```
+
+**Advanced multi-criteria searches**:
+
+```bash
+# Large-cap tech stocks with bullish sentiment
+rg -l "market_cap=large_cap" content/processed/ | xargs rg -l "sector=technology" | xargs rg -n -C 6 "sentiment=bullish"
+
+# Growth investing discussions about mega-cap stocks
+rg -n -C 6 "investment_style=growth" content/processed/ | rg "market_cap=mega_cap"
+
+# ETF recommendations from specific time period
+rg -n -C 6 "asset_type=etf" content/processed/ --glob "**/2025-12/*.md" | rg "recommendation=buy\|recommendation=strong_buy"
+
+# Bearish sentiment on specific narrative
+rg -n -C 6 "narrative=ev_transition" content/processed/ | rg "sentiment=bearish"
 ```
 
 ## Configuration

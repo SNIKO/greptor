@@ -15,9 +15,7 @@ export interface FileStorage {
 	readonly processedContentPath: string;
 
 	saveRawContent(input: GreptorEatInput): Promise<DocumentSaveResult>;
-	readRawContent(
-		ref: DocumentRef,
-	): Promise<{ tags: Tags; content: string }>;
+	readRawContent(ref: DocumentRef): Promise<{ tags: Tags; content: string }>;
 	getUnprocessedContents(): Promise<DocumentRef[]>;
 	saveProcessedContent(ref: DocumentRef, content: string): Promise<void>;
 }

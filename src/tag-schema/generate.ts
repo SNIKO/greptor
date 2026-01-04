@@ -1,6 +1,7 @@
 import { type LanguageModel, Output, generateText } from "ai";
+import { z } from "zod";
 import type { TagSchema, TagSchemaItem } from "../types.js";
-import { ResponseSchema } from "./types.js";
+import { TagFieldSchema } from "./types.js";
 
 const PROMPT_TEMPLATE = (topic: string) => `
 You are an expert information architect designing tag schemas that improve text search, discovery, and retrieval within a specific knowledge topic.
@@ -24,7 +25,13 @@ export async function generateTagSchema(
 		model,
 		prompt: PROMPT_TEMPLATE(topic),
 		output: Output.object({
-			schema: ResponseSchema,
+			schema: z.object({
+				tag_fields: z
+					.array(TagFieldSchema)
+					.min(5)
+					.max(10)
+					.describe("List of tag fields for the given topic"),
+			}),
 		}),
 	});
 
@@ -36,12 +43,9 @@ export async function generateTagSchema(
 		const tagField: TagSchemaItem = {
 			name: field.name,
 			type: field.type,
+			enumValues: field.enumValues,
 			description: field.description,
 		};
-
-		if (Array.isArray(field.enumValues)) {
-			tagField.enumValues = field.enumValues;
-		}
 
 		return tagField;
 	});
