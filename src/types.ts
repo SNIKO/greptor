@@ -13,13 +13,13 @@ export interface GreptorOptions {
 	topic: string;
 	model: LanguageModel;
 	workers?: number;
-	metadataSchema?: MetadataSchema;
+	tagSchema?: TagSchema;
 	logger?: Logger;
 }
 
-export type MetadataSchema = MetadataSchemaItem[];
+export type TagSchema = TagSchemaItem[];
 
-export interface MetadataSchemaItem {
+export interface TagSchemaItem {
 	name: string;
 	type:
 		| "string"
@@ -36,7 +36,7 @@ export interface MetadataSchemaItem {
 
 export type SupportedFormat = "text";
 
-export type MetadataValueType =
+export type TagValueType =
 	| string
 	| number
 	| boolean
@@ -45,7 +45,7 @@ export type MetadataValueType =
 	| number[]
 	| boolean[];
 
-export type Metadata = Record<string, MetadataValueType>;
+export type Tags = Record<string, TagValueType>;
 
 export interface GreptorEatInput {
 	content: string;
@@ -55,7 +55,7 @@ export interface GreptorEatInput {
 	publisher?: string;
 	id?: string;
 	creationDate?: Date;
-	metadata?: Metadata;
+	tags?: Tags;
 	overwrite?: boolean;
 }
 

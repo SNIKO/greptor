@@ -49,7 +49,7 @@ const greptor = await createGreptor({
 ```
 
 - **`baseDir`**: Home directory for your project where all data will be stored.
-- **`topic`**: Helps Greptor understand your data better and generate a relevant metadata schema.
+- **`topic`**: Helps Greptor understand your data better and generate a relevant tag schema.
 - **`model`**: A `LanguageModel` instance from [Vercel AI SDK](https://ai-sdk.dev).
 
 ### Step 3: Start Feeding Documents
@@ -63,8 +63,8 @@ await greptor.eat({
   label: 'Top Five AI Stocks I\'m Buying Now',
   content: '{fetch and populate video transcript here}',
   creationDate: new Date('2025-11-15'),
-  metadata: {
-    // Optional custom metadata specific to the source or document
+  tags: {
+    // Optional custom tags specific to the source or document
     channelTitle: 'Joseph Carlson',
     channelSubscribers: 496000
   },
@@ -78,8 +78,8 @@ await greptor.eat({
   label: 'Tesla reports 418,227 deliveries for the fourth quarter, down 16%',
   content: '{fetch and populate Reddit post with comments here}',
   creationDate: new Date('2025-12-03'),
-  metadata: {
-    // Optional custom metadata
+  tags: {
+    // Optional custom tags
     upvotes: 1400
   },
 });
@@ -87,7 +87,7 @@ await greptor.eat({
 
 ### Step 4: Wait for Background Processing
 
-Greptor will write your input to a raw Markdown file immediately, then run background enrichment (LLM cleaning + chunking + metadata extraction) and write a processed Markdown file. You can grep the raw files right away, and the processed files will appear shortly after.
+Greptor will write your input to a raw Markdown file immediately, then run background enrichment (LLM cleaning + chunking + tagging) and write a processed Markdown file. You can grep the raw files right away, and the processed files will appear shortly after.
 
 ### Step 5: Generate a Claude Code Skill
 
@@ -97,7 +97,7 @@ await greptor.createSkill(['youtube', 'reddit']);
 
 This generates a Claude Code skill that instructs agents on how to search your indexed content effectively.
 
-The skill is customized for the sources you provide and includes search tips based on the metadata schema. You can always customize it manually further for better results.
+The skill is customized for the sources you provide and includes search tips based on the tag schema. You can always customize it manually further for better results.
 
 ### Step 6: Run the Agent
 
@@ -151,9 +151,7 @@ Now you have a personal investment research assistant with access to your portfo
 
 Workers pick up new documents and run a one-time pipeline:
 
-1. **LLM cleaning**: Remove timestamps, ads, disclaimers, boilerplate, and irrelevant content.
-2. **LLM chunking**: Transform a blob into semantic section chunks.
-3. **LLM metadata extraction**: Extract metadata relevant to your topic/domain and enrich each chunk with denormalized metadata.
+1. **LLM clean + chunk + tag (single prompt)**: Remove boilerplate, split into semantic chunks, and inline grep-friendly per-chunk tags.
 
 Here's an example of a processed file:
 
@@ -166,97 +164,89 @@ date: 2025-11-15
 ticker: "NVDA"
 videoId: "dQw4w9WgXcQ"
 url: "https://youtube.com/watch?v=dQw4w9WgXcQ"
-chunks:
-  - id: c01
-    title: "Revenue Growth Analysis"
-    topics: [earnings, revenue, data-center]
-    sentiment: positive
-    tickers: [NVDA]
-    price_mentioned_usd: 850.50
-    revenue_mentioned_billions: 35.1
-  - id: c02
-    title: "AI Chip Demand Outlook"
-    topics: [ai, competition, market-share]
-    sentiment: bullish
-    tickers: [NVDA, AMD, INTC]
-    timeframe: next-quarter
 ---
 
-CHUNK c01: "Revenue Growth Analysis"
+## 01 Revenue Growth Analysis
+topics=earnings,revenue,data_center
+sentiment=positive
+tickers=NVDA
+
 NVIDIA reported Q4 revenue of $35.1 billion, beating estimates...
 
-CHUNK c02: "AI Chip Demand Outlook"
+## 02 AI Chip Demand Outlook
+topics=ai,competition,market_share
+sentiment=bullish
+tickers=NVDA,AMD,INTC
+timeframe=next_quarter
+
 The demand for AI accelerators continues to outpace supply...
 ```
 
 ### 3) Navigate with grep/glob
 
-Your "index" is the YAML frontmatter combined with the file layout. Agents can search it deterministically.
+Your "index" is the YAML frontmatter (document-level) plus the per-chunk tag lines. Agents can search it deterministically.
 
 **Search examples**:
 
 ```bash
-# Find all bullish sentiment for TSLA stock
-rg -l "ticker:.*TSLA" content/processed | xargs rg "sentiment:.*bullish"
+# Find all bullish sentiment for TSLA stock (capture full tag block)
+rg -n -C 6 "ticker=TSLA" content/processed | rg "sentiment=bullish"
 
-# Count documents per ticker
-rg "ticker:" content/processed -o | sort | uniq -c | sort -rn | head -20
+# Count tag values for a field (e.g., ticker)
+rg -n -C 6 "ticker=" content/processed | rg -o "ticker=[^\\n]+" | cut -d= -f2 | tr ',' '\n' | sort | uniq -c | sort -rn | head -20
 
 # What companies does a specific YouTuber discuss?
-rg "company:" content/processed/youtube/JosephCarlsonShow -o | sort | uniq -c | sort -rn
+rg -n -C 6 "company=" content/processed/youtube/JosephCarlsonShow
 
-# Find all AI-related narratives with strong buy recommendations
-rg -l "narrative:.*ai_boom" content/processed | xargs rg "recommendation:.*strong_buy"
+# Find AI-related narratives with strong buy recommendations
+rg -n -C 6 "narrative=*ai*" content/processed | rg "recommendation=strong_buy"
 
 # Technology sector stocks with bullish sentiment in December 2025
-rg -l "sector:.*technology" content/processed --glob "**/2025-12/*.md" | xargs rg "sentiment:.*bullish"
+rg -n -C 6 "sector=technology" content/processed --glob "**/2025-12/*.md" | rg "sentiment=bullish"
 
 # Find dividend investment style discussions
-rg "investment_style:.*dividend" content/processed -l | head -10
+rg -n -C 6 "investment_style=dividend" content/processed | head -10
 
 # Bearish sentiment on large-cap stocks
-rg -l "market_cap:.*large_cap" content/processed | xargs rg "sentiment:.*bearish"
+rg -n -C 6 "market_cap=large_cap" content/processed | rg "sentiment=bearish"
 
-# List all tickers mentioned with their sentiment
-rg "ticker: \[.*\]" content/processed -A 5 | rg "sentiment:"
+# List all tickers mentioned with their sentiment (grab tag lines only)
+rg -n "ticker=" content/processed
 
-# Find EV-related discussions across all sources
-rg "narrative:.*ev_transition" content/processed
 
 # Combine multiple filters: tech stocks with strong buy in specific timeframe
-rg -l "sector:.*technology" content/processed --glob "**/2025-11/*.md" | \
-  xargs rg -l "recommendation:.*strong_buy" | \
-  xargs rg "ticker:" -o | sort | uniq -c
+rg -n -C 6 "sector=technology" content/processed --glob "**/2025-11/*.md" | \
+  rg "recommendation=strong_buy" | rg -o "ticker=[^\\n]+" | cut -d= -f2 | tr ',' '\n' | sort | uniq -c
 ```
 
 **Analysis patterns**:
 
 ```bash
 # Aggregate sentiment distribution
-rg "sentiment:" content/processed -o | cut -d: -f2 | tr -d ' ' | sort | uniq -c
+rg -o "sentiment=" content/processed | rg -o "sentiment=[^\\n]+" | cut -d= -f2 | tr ',' '\n' | sort | uniq -c
 
 # Most discussed sectors
-rg "sector:" content/processed -o | sort | uniq -c | sort -rn
+rg -o "sector=" content/processed | rg -o "sector=[^\\n]+" | cut -d= -f2 | tr ',' '\n' | sort | uniq -c | sort -rn
 
 # Track narrative evolution over time
 for month in 2025-{10..12}; do
   echo "=== $month ==="
-  rg "narrative:" content/processed --glob "**/$month-*/*.md" -o | sort | uniq -c | sort -rn | head -5
+  rg -o "narrative=" content/processed --glob "**/$month-*/*.md" | rg -o "narrative=[^\\n]+" | cut -d= -f2 | tr ',' '\n' | sort | uniq -c | sort -rn | head -5
 done
 
 # Compare sentiment on specific stock across sources
 for source in youtube reddit; do
   echo "=== $source ==="
-  rg -l "ticker:.*AAPL" content/processed/$source | xargs rg "sentiment:" -o | sort | uniq -c
+  rg -n -C 6 "ticker=AAPL" content/processed/$source | rg -o "sentiment=[^\\n]+" | cut -d= -f2 | tr ',' '\n' | sort | uniq -c
 done
 ```
 
 ## Configuration
 
 
-## Metadata Schemas
+## Tag Schemas
 
-If you don't provide a schema, Greptor can initialize one for your topic. However, for better results, provide a custom schema.
+If you don't provide a schema, Greptor can initialize one for your topic. However, for better results, provide a custom tag schema.
 
 Here's a comprehensive example for investment research:
 
@@ -265,7 +255,7 @@ const greptor = await createGreptor({
   baseDir: './projects/investing',
   topic: 'Investing, stock market, financial, and macroeconomics',
   model: openai("gpt-5-mini"),
-  metadataSchema: [
+  tagSchema: [
     {
       name: 'company',
       type: 'string[]',

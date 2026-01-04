@@ -6,7 +6,7 @@ import type {
 	DocumentRef,
 	DocumentAddResult as DocumentSaveResult,
 } from "../storage/types.js";
-import type { GreptorEatInput, Metadata } from "../types.js";
+import type { GreptorEatInput, Tags } from "../types.js";
 import { fileExists } from "../utils/file.js";
 
 export interface FileStorage {
@@ -17,7 +17,7 @@ export interface FileStorage {
 	saveRawContent(input: GreptorEatInput): Promise<DocumentSaveResult>;
 	readRawContent(
 		ref: DocumentRef,
-	): Promise<{ metadata: Metadata; content: string }>;
+	): Promise<{ tags: Tags; content: string }>;
 	getUnprocessedContents(): Promise<DocumentRef[]>;
 	saveProcessedContent(ref: DocumentRef, content: string): Promise<void>;
 }
@@ -53,10 +53,15 @@ export function createFileStorage(baseDir: string): FileStorage {
 			sanitized = sanitized.slice(0, maxLength);
 		}
 
-		return sanitized || fallback;
+		if (!sanitized || sanitized === "") {
+			return fallback;
+		}
+
+		return sanitized;
 	}
 
 	function generateDocumentRef(args: {
+		id?: string;
 		label: string;
 		source: string;
 		publisher?: string;
@@ -64,12 +69,14 @@ export function createFileStorage(baseDir: string): FileStorage {
 	}): DocumentRef {
 		const effectiveTimestamp = args.timestamp ?? new Date();
 		const isoDate = effectiveTimestamp.toISOString().split("T")[0];
-		const safeTitle = sanitize(args.label, 50, "untitled");
+		const safeId = sanitize(args.id ?? "", 50, "unknown");
+		const safeTitle = sanitize(args.label, 50, safeId);
 		const yearMonth = getYearMonthSegment(effectiveTimestamp);
 		const source = sanitize(args.source, 20, "unknown");
 		const publisher = args.publisher
 			? sanitize(args.publisher, 50, "unknown")
 			: undefined;
+
 		const fileName = `${isoDate}-${safeTitle}.md`;
 
 		return path.posix.join(
@@ -87,7 +94,7 @@ export function createFileStorage(baseDir: string): FileStorage {
 			created_at: input.creationDate
 				? input.creationDate.toISOString()
 				: new Date().toISOString(),
-			...input.metadata,
+			...input.tags,
 			source: input.source,
 			...(input.publisher ? { publisher: input.publisher } : {}),
 		};
@@ -144,6 +151,7 @@ export function createFileStorage(baseDir: string): FileStorage {
 		try {
 			const content = buildRawFileContent(input);
 			const ref = generateDocumentRef({
+				id: input.id ?? "unknown",
 				label: input.label,
 				source: input.source,
 				...(input.publisher ? { publisher: input.publisher } : {}),
@@ -179,7 +187,7 @@ export function createFileStorage(baseDir: string): FileStorage {
 
 	async function readRawContent(
 		ref: DocumentRef,
-	): Promise<{ metadata: Metadata; content: string }> {
+	): Promise<{ tags: Tags; content: string }> {
 		const fullPath = resolveLayerPath("raw", ref);
 		const content = await readFile(fullPath, "utf8");
 		if (!content.startsWith("---\n")) {
@@ -209,9 +217,9 @@ export function createFileStorage(baseDir: string): FileStorage {
 			);
 		}
 
-		const metadata = parsed as Metadata;
+		const tags = parsed as Tags;
 
-		return { metadata, content: body };
+		return { tags, content: body };
 	}
 
 	async function getUnprocessedContents(): Promise<DocumentRef[]> {

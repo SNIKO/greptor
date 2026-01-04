@@ -3,7 +3,7 @@
 ## 1. Project Overview
 **Greptor** (Grep + Raptor) is a high-performance content ingestion and indexing library designed to make unstructured **text** easily searchable via tools like `ripgrep`.
 
-The core philosophy is **"Minimal Processing + Maximal grep-ability"**: ingest raw content, apply lightweight enrichment (chunking + metadata extraction), and denormalize everything into a grep-friendly format. No heavy preprocessing like clustering or precomputed indices. The LLM synthesizes answers at query time from clean, metadata-rich files.
+The core philosophy is **"Minimal Processing + Maximal grep-ability"**: ingest raw content, apply lightweight enrichment (chunking + tagging), and denormalize everything into a grep-friendly format. No heavy preprocessing like clustering or precomputed indices. The LLM synthesizes answers at query time from clean, tag-rich files.
 
 ## 2. Library Requirements
 
@@ -12,15 +12,15 @@ The core philosophy is **"Minimal Processing + Maximal grep-ability"**: ingest r
 -   **Standardized Output**: Store content as Markdown with YAML frontmatter.
 -   **Time-based Organization**: Store files in a date-based directory structure:  
     `content/{raw|processed}/{source}/{publisher?}/{YYYY-MM}/{YYYY-MM-DD-label}.md`
--   **Lightweight Enrichment**: Use LLMs to chunk content and extract metadata based on a user-defined or auto-generated schema.
--   **Denormalized Storage**: Embed metadata directly in YAML frontmatter and include chunk headers in content to maximize grep-ability.
+-   **Lightweight Enrichment**: Use LLMs to chunk content and extract tags based on a user-defined or auto-generated schema.
+-   **Denormalized Storage**: Embed tags directly in YAML frontmatter and include chunk headers in content to maximize grep-ability.
 -   **"Eat" API**: A simple, unified entry point (`eat` method) for users to feed data into the system.
 -   **Skill Generation**: Generate a Claude Code skill file for searching the processed data.
 
 ### Non-Functional Requirements
 -   **Grep-Friendly**: The storage format must be optimized for command-line search tools (`ripgrep`, `grep`).
 -   **Performance**: Ingestion should be fast; heavy processing (LLM tasks) should be offloaded to background threads/workers to avoid blocking the main application.
--   **Extensibility**: Users can define their own domains and metadata schemas.
+-   **Extensibility**: Users can define their own domains and tag schemas.
 -   **Simplicity**: Minimal configuration required to get started.
 
 ## 3. High-Level Design
@@ -36,7 +36,7 @@ The library operates on a simple, grep-optimized storage model:
     -   `createSkill(sources, overwrite)`: Generates a skill file for search guidance.
 -   **`FileStorage`**: Handles file I/O using opaque `DocumentRef`s, ensuring separation between `raw` and `processed` layers.
 -   **Background Processor**: In-memory worker queue that processes pending documents.
--   **Metadata Schema**: Persisted in `content/metadata-schema.yaml` and generated with LLMs if not provided.
+-   **Tag Schema**: Persisted in `content/tag-schema.yaml` and generated with LLMs if not provided.
 -   **LLM Client**: Provider/model abstraction for OpenAI-compatible APIs (OpenAI, Azure OpenAI, Ollama).
 
 ### Data Flow
@@ -45,8 +45,8 @@ The library operates on a simple, grep-optimized storage model:
 3.  **FileStorage** writes to `content/raw/...` and returns a `DocumentRef`.
 4.  **Greptor** enqueues the `DocumentRef` into the in-memory processing queue.
 5.  **Background Processor** picks up items (and also scans disk for unprocessed files on startup).
-6.  **LLM** chunks content and extracts per-chunk metadata based on the schema.
-7.  **Processor** writes the enriched content to `content/processed/...`, embedding metadata in YAML frontmatter and leaving chunked content in the body.
+6.  **LLM** chunks content and extracts per-chunk tags based on the schema.
+7.  **Processor** writes the enriched content to `content/processed/...`, embedding tags in YAML frontmatter and leaving chunked content in the body.
 
 ## 4. Coding Conventions & Best Practices
 
@@ -78,16 +78,14 @@ src/
 ├── index.ts                  # Library exports
 ├── greptor.ts                # Main entry point (factory)
 ├── types.ts                  # Shared interfaces
-├── metadata-schema/
+├── tag-schema/
 │   ├── initialize.ts
 │   ├── generate.ts
 │   └── types.ts
 ├── llm/
 │   └── llm-factory.ts
 ├── processing/
-│   ├── processor.ts
-│   ├── chunk.ts
-│   └── extract-metadata.ts
+│   └── processor.ts
 ├── storage/
 │   ├── file-storage.ts
 │   ├── types.ts

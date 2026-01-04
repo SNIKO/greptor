@@ -1,10 +1,10 @@
 import { type LanguageModel, Output, generateText } from "ai";
-import type { MetadataSchema, MetadataSchemaItem } from "../types.js";
+import type { TagSchema, TagSchemaItem } from "../types.js";
 import { ResponseSchema } from "./types.js";
 
 const PROMPT_TEMPLATE = (topic: string) => `
-You are an expert information architect designing metadata schemas that improve text search, discovery, and retrieval within a specific knowledge topic. 
-Your goal is to produce a list of 5-10 **metadata fields** that are: 
+You are an expert information architect designing tag schemas that improve text search, discovery, and retrieval within a specific knowledge topic.
+Your goal is to produce a list of 5-10 **tag fields** that are:
 1. **Search-relevant** — users or AI agents are likely to query or filter text by these fields. 
 2. **Domain-relevant** — reflect concepts, entities, and descriptors naturally present in this domain. 
 3. **Extractable** — values can be identified directly from text (no scoring or inferred metrics like confidence, relevance, etc.). 
@@ -16,10 +16,10 @@ Use array types when multiple values are expected per chunk.
 **TOPIC**: ${topic}
 `;
 
-export async function generateMetadataSchema(
+export async function generateTagSchema(
 	topic: string,
 	model: LanguageModel,
-): Promise<MetadataSchema> {
+): Promise<TagSchema> {
 	const { output } = await generateText({
 		model,
 		prompt: PROMPT_TEMPLATE(topic),
@@ -28,21 +28,21 @@ export async function generateMetadataSchema(
 		}),
 	});
 
-	if (!output?.metadata_fields) {
-		throw new Error("Failed to parse metadata schema from LLM response");
+	if (!output?.tag_fields) {
+		throw new Error("Failed to parse tag schema from LLM response");
 	}
 
-	return output.metadata_fields.map((field) => {
-		const metadataField: MetadataSchemaItem = {
+	return output.tag_fields.map((field) => {
+		const tagField: TagSchemaItem = {
 			name: field.name,
 			type: field.type,
 			description: field.description,
 		};
 
 		if (Array.isArray(field.enumValues)) {
-			metadataField.enumValues = field.enumValues;
+			tagField.enumValues = field.enumValues;
 		}
 
-		return metadataField;
+		return tagField;
 	});
 }

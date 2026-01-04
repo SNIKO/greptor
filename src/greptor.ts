@@ -7,7 +7,7 @@ import type {
 
 import path from "node:path";
 import YAML from "yaml";
-import { initializeMetadataSchema } from "./metadata-schema/initialize.js";
+import { initializeTagSchema } from "./tag-schema/initialize.js";
 import {
 	createProcessingQueue,
 	enqueueUnprocessedDocuments,
@@ -31,11 +31,11 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 
 	logger?.debug?.("Initializing Greptor", { baseDir, topic: options.topic });
 
-	const metadataSchema = await initializeMetadataSchema(
+	const tagSchema = await initializeTagSchema(
 		storage.baseDir,
 		model,
 		options.topic,
-		options.metadataSchema,
+		options.tagSchema,
 		logger,
 	);
 
@@ -48,7 +48,7 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 
 	const ctx = {
 		domain: options.topic,
-		metadataSchema: YAML.stringify(metadataSchema),
+		tagSchema: YAML.stringify(tagSchema),
 		model,
 		storage,
 		...(logger ? { logger } : {}),
@@ -114,7 +114,7 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 					domain: options.topic,
 					sources,
 					baseDir: options.baseDir,
-					metadataSchema,
+					tagSchema,
 					overwrite,
 				},
 				storage,

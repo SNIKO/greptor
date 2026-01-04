@@ -1,31 +1,29 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { FileStorage } from "../storage/file-storage.js";
-import type { MetadataSchemaItem } from "../types.js";
+import type { TagSchemaItem } from "../types.js";
 import { fileExists } from "../utils/file.js";
 
 export interface SkillGeneratorOptions {
 	domain: string;
 	sources: string[];
 	baseDir: string;
-	metadataSchema: MetadataSchemaItem[];
+	tagSchema: TagSchemaItem[];
 	overwrite: boolean;
 }
 
 /**
- * Generate ripgrep example patterns for a metadata field
+ * Generate ripgrep example patterns for a tag field
  */
 function generateRgPattern(
 	field: string,
 	sampleValue: string,
 	isArray: boolean,
 ): string {
-	if (isArray) {
-		// For array fields, search within YAML array syntax
-		return `rg "${field}:\\s*\\[.*${sampleValue}.*\\]" processed`;
-	}
-	// For single-value fields, search for exact value
-	return `rg "${field}:\\s*${sampleValue}" processed`;
+	const valuePattern = isArray
+		? `\\b${field}=[^\\n]*\\b${sampleValue}\\b`
+		: `\\b${field}=${sampleValue}\\b`;
+	return `rg -n -C 6 "${valuePattern}" processed`;
 }
 
 function generateSkillName(sources: string[], maxLength = 30): string {
@@ -64,13 +62,13 @@ function sanitizePathSegment(name: string, maxLength = 50): string {
 function generateSkillContent(
 	domain: string,
 	sources: string[],
-	metadataSchema: MetadataSchemaItem[],
+	tagSchema: TagSchemaItem[],
 	fileStorage: FileStorage,
 ): string {
 	const skillName = generateSkillName(sources);
 
-	// Generate metadata list from schema
-	const metadataList = metadataSchema
+	// Generate tag list from schema
+	const tagList = tagSchema
 		.map((field) => {
 			const typeSuffix =
 				field.type.startsWith("enum") && field.enumValues
@@ -81,7 +79,7 @@ function generateSkillContent(
 		.join("\n");
 
 	// Generate ripgrep examples for first 3-4 fields, showing both array and single-value patterns
-	const exampleFields = metadataSchema.slice(0, 4);
+	const exampleFields = tagSchema.slice(0, 4);
 	const rgExamples = exampleFields
 		.map((field) => {
 			// Check if field type indicates an array (e.g., "string[]", "enum[]")
@@ -102,17 +100,17 @@ description: Guide for searching and analyzing indexed content from ${sources.jo
 
 # Skill Overview
 
-This skill provides guidance for efficient search over indexed content from ${sources.join(", ")} in the \`${domain}\` domain. It leverages grep-friendly metadata and chunked content storage to enable precise filtering and retrieval.
+This skill provides guidance for efficient search over indexed content from ${sources.join(", ")} in the \`${domain}\` domain. It leverages grep-friendly tags and chunked content storage to enable precise filtering and retrieval.
 
 ## About the Content
 
-Content from ${sources.join(", ")} has been fetched, chunked, enriched with searchable metadata, and stored in the '${fileStorage.baseDir}' directory.
+Content from ${sources.join(", ")} has been fetched, chunked, enriched with searchable tags, and stored in the '${fileStorage.baseDir}' directory.
 
 ### Directory Structure
 
 \`\`\`
 ${fileStorage.baseDir}/
-├── processed/       # Cleaned, search-optimized content with metadata
+├── processed/       # Cleaned, search-optimized content with tags
 │   └── {source}/    # ${sources.join(", ")}, etc.
 │       └── {publisher?}/
 │           └── YYYY-MM/
@@ -122,42 +120,36 @@ ${fileStorage.baseDir}/
 
 ### File Format
 
-Each processed file contains YAML frontmatter with document metadata and a \`chunks\` array. Each chunk includes:
-- \`id\`: Unique chunk identifier (e.g., c01, c02)
-- \`title\`: Chunk title
-- Domain-specific metadata fields
-
-Chunked content follows the frontmatter, with chunk IDs as section headers.
+Each processed file contains YAML frontmatter with document level tags. 
+The content part contains semantically chunked content with inline chunk tags.
 
 \`\`\`yaml
 ---
 title: "Document Title"
 source: "Source Name"
 publisher: "Publisher Name"
-<other metadata fields>
-chunks:
-  - id: c01
-    title: "First Chunk Title"
-    # Domain-specific metadata fields related to this chunk
-  - id: c02
-    title: "Second Chunk Title"
-    # Domain-specific metadata fields related to this chunk
+<other document tags>
 ---
 
-CHUNK c01: "First Chunk Title"
+## 01 First Chunk Title
+field1=value
+field2=value1,value2
 <chunk content here>
 
-CHUNK c02: "Second Chunk Title"
+## 02 Second Chunk Title
+field1=value
+field2=value3
 <chunk content here>
 \`\`\`
 
-The YAML frontmatter serves as an index for the entire document.
+The tag lines serve as a compact, grep-friendly index for each chunk.
+There are ${tagList.length}} total tag fields in general, but only half are present in any given chunk (the rest are omitted if are not applicable).
 
-### Key Metadata Fields
+### Key Tag Fields
 
-Below are the most common metadata fields with sample values. Additional metadata fields and values may exist beyond those listed here.
+Below are tag fields with sample values:
 
-${metadataList}
+${tagList}
 
 ## Recommended Search Strategy
 
@@ -168,48 +160,34 @@ ${metadataList}
 1. **Constrain by time range first**  
    Use file path patterns (e.g., \`YYYY/MM/YYYY-MM-DD\`) to limit the search space before inspecting content.
 
-2. **Apply metadata filters**  
-   Use \`ripgrep\` to match specific YAML frontmatter fields. Note that metadata fields can be either:
-   - **Single values**: Match with \`field: value\` (e.g., \`date: 2025-01-15\`)
-   - **Arrays**: Match with \`field: [ value1, value2 ]\` or search within arrays using \`field:\\s*\\[.*value.*\\]\`
-   
+2. **Apply tag filters**  
+   Use \`ripgrep\` to match tag lines for chunk-level tags. Always include \`-C 6\` so the full tag block appears in context:
+   - **Single values**: \`rg -n -C 6 "field=value"\`
+   - **Arrays** (comma-separated): \`rg -n -C 6 "field=.*value"\`
+
    Refer to the Key Metadata Fields section below to understand which fields are arrays vs single values.
 
-3. **Leverage YAML frontmatter as a document index**  
-   Treat frontmatter as a document summary. Read it first to understand:
-   - Which chunks exist
-   - What each chunk covers  
-   This avoids unnecessary full-content reads.
+3. **Capture surrounding tag lines**
+   Use the \`-C\` flag with \`ripgrep\` to capture lines before and after matches, ensuring you get full list of tags each chunk so that you can pipe multiple tag filters together.
+	 You can assume there are up to 6 tag lines per chunk. But refer to tag schema to estimate count.
 
-4. **Identify relevant chunks**  
-   From search results and frontmatter, collect IDs of chunks likely to contain relevant information.
-
-5. **Enumerate candidate documents**  
-   Before reading chunk content, broaden queries slightly (alternative wording, synonyms, metadata variations) to ensure all relevant documents and chunk IDs are discovered.
-
-6. **Refine iteratively**  
-   Adjust path patterns, metadata filters, and query terms based on findings until no new relevant documents or chunks appear.
-
-7. **Read targeted content only**  
-   Use collected chunk IDs to read only the necessary sections of each document.
+4. **Refine iteratively**  
+   Adjust path patterns, tag filters, and query terms based on findings until no new relevant documents or chunks appear.
 
 ## Ripgrep Search Examples
 
 \`\`\`bash
-# Find specific chunk content with context
-rg "CHUNK c01:" -A 20 processed
-
 # Search only ${exampleSource} content
 rg "search query" processed/${exampleSource}
 
 # Search ${exampleSource} content from December 2025
 rg "search query" processed/${exampleSource} --glob "**/2025-12/*.md"
 
-# Combine multiple metadata filters
-rg -l "field1:.*value1" processed | xargs rg "field2:.*value2"
+# Combine multiple tag filters (pipe + context)
+rg -n -C 6 "field1=value1" processed | rg "field2=value2"
 
-# List unique values for a metadata field
-rg "field_name:" processed | sort | uniq -c | sort -rn | head -20
+# List unique values for a tag field
+rg -n -C 6 "field_name=" processed | rg -o "field_name=[^\\n]+" | cut -d= -f2 | tr ',' '\n' | sort | uniq -c | sort -rn | head -20
 
 ${rgExamples}
 \`\`\`
@@ -217,7 +195,7 @@ ${rgExamples}
 ## Important Guidelines
 
 - **Primary source**: Always use the \`processed/\` directory for searches; only fall back to \`raw/\` if necessary
-- **Metadata first**: Start with metadata filtering before full-text content search
+- **Tags first**: Start with tag filtering before full-text content search
 - **Context capture**: Use \`-B\` and \`-A\` flags to capture surrounding lines for context without reading entire chunks
 - **Citation style**: When referencing content, cite by source name, publisher, and title—never expose internal structure like chunk IDs or file paths to the user
 `;
@@ -234,7 +212,7 @@ export async function generateSkill(
 	const skillContent = generateSkillContent(
 		options.domain,
 		options.sources,
-		options.metadataSchema,
+		options.tagSchema,
 		fileStorage,
 	);
 

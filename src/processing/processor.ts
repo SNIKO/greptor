@@ -1,15 +1,13 @@
-import type { LanguageModel } from "ai";
+import { type LanguageModel, generateText } from "ai";
 import YAML from "yaml";
 import type { DocumentRef, FileStorage } from "../storage/index.js";
-import type { Logger, Metadata } from "../types.js";
-import { chunk as chunkDocument } from "./chunk.js";
-import { extractMetadata } from "./extract-metadata.js";
+import type { Logger, Tags } from "../types.js";
 
 const DEFAULT_IDLE_SLEEP_MS = 750;
 
 export interface ProcessorContext {
 	domain: string;
-	metadataSchema: string;
+	tagSchema: string;
 	model: LanguageModel;
 	storage: FileStorage;
 	logger?: Logger;
@@ -39,17 +37,8 @@ export function createProcessingQueue(): ProcessingQueue {
 	};
 }
 
-function renderProcessedDocument(
-	metadata: Metadata,
-	chunkMetadata: Metadata[],
-	chunkContent: string,
-): string {
-	const combinedMetadata = {
-		...metadata,
-		chunks: chunkMetadata,
-	};
-
-	const doc = new YAML.Document(combinedMetadata);
+function renderProcessedDocument(tags: Tags, chunkContent: string): string {
+	const doc = new YAML.Document(tags);
 
 	YAML.visit(doc, {
 		Seq(_, node) {
@@ -60,15 +49,77 @@ function renderProcessedDocument(
 		},
 	});
 
-	const renderedMetadata = doc.toString({ lineWidth: 200 });
+	const renderedTags = doc.toString({ lineWidth: 200 });
 
-	return [
-		"---",
-		renderedMetadata.trimEnd(),
-		"---",
-		"",
-		chunkContent.trim(),
-	].join("\n");
+	return ["---", renderedTags.trimEnd(), "---", "", chunkContent.trim()].join(
+		"\n",
+	);
+}
+
+function createProcessingPrompt(
+	rawContent: string,
+	domain: string,
+	tagSchema: string,
+): string {
+	return `
+# INSTRUCTIONS
+Clean, chunk, and tag the raw content for **grep-based search** in the domain: ${domain}.
+
+## Core Principle
+Optimize for **single-pass grep scanning**: a single grep hit should reveal what a chunk is about without reading other chunks.
+
+## Objectives
+- Remove noise and boilerplate: ads, sponsors, intros/outros, CTAs, repetitions, contact or social links, and sign-offs.
+- Preserve **all meaning and factual detail exactly** (facts, names, dates, numbers, ranges, uncertainty, conditions, and meaningful URLs).
+- Use **minimal wording** while keeping all information.
+- Chunk the content into **semantic sections** (prefer fewer, richer chunks when possible; do not pad content to reach size targets).
+
+## Output Format (Markdown only)
+
+\`\`\`md
+## 01 Short descriptive title for chunk 1
+field_1=value_1,value_4
+field_2=value_2,
+field_3=value_3,
+<cleaned, condensed content>
+
+## 02 Short descriptive title for chunk 2
+field_1=value_1
+field_4=value_4
+field_5=value_5,value_6
+<cleaned, condensed content>
+\`\`\`
+
+## Tagging Rules
+- Use ONLY fields defined in the SCHEMA (field names must exactly match schema).
+- Do not invent new fields.
+- Omit fields with no value.
+- One tag field per line.
+- DO NOT duplicate fields. For arrays, use comma-separated values.
+- For enums, use only allowed enum values from the schema.
+- Use ISO-8601 for dates (YYYY-MM-DD).
+- Keep tag values grep-friendly:
+	- snake_case where appropriate
+	- tickers, codes, and symbols in UPPERCASE
+- Maintain a tag order as per schema.
+
+## Content Rules
+- Output MUST be plain text or Markdown with simple formatting (headings, lists, bold/italic).
+- Rewrite content to be token-efficient and grep-efficient without altering meaning.
+- Content MUST be split into short paragraphs separated by blank lines.
+- Each paragraph MUST be 1-3 sentences.
+- Each sentence MUST be declarative and information-dense.
+- Keep entities, tickers, and terms explicit; avoid pronouns.
+- Normalize numbers (e.g. "1,000,000.00", "24%").
+- Preserve uncertainty, ranges, and conditional statements exactly.
+- Do not add interpretation, synthesis, or analysis.
+
+# TAG SCHEMA:
+${tagSchema}
+
+# RAW CONTENT:
+${rawContent}
+`;
 }
 
 async function processDocument(
@@ -76,36 +127,34 @@ async function processDocument(
 	ctx: ProcessorContext,
 ): Promise<void> {
 	// 1. Read raw content
-	const { metadata, content } = await ctx.storage.readRawContent(ref);
-	const contentLength = content.length;
+	const { tags, content } = await ctx.storage.readRawContent(ref);
 
-	// 2. Chunk content with LLM
-	ctx.logger?.debug?.("Chunking document", { ref, step: "chunk" });
-	const chunkContent = await chunkDocument(content, ctx.domain, ctx.model);
+	// 2. Clean + chunk + tag with a single LLM call
+	ctx.logger?.debug?.("Processing document", { ref, step: "single-pass" });
+	const prompt = createProcessingPrompt(content, ctx.domain, ctx.tagSchema);
 
-	// 3. Extract metadata with LLM
-	ctx.logger?.debug?.("Extracting metadata", { ref, step: "metadata" });
-	const chunkMetadata = await extractMetadata(
-		chunkContent,
-		ctx.domain,
-		ctx.metadataSchema,
-		ctx.model,
-	);
+	const { text, usage } = await generateText({
+		model: ctx.model,
+		prompt,
+	});
 
-	// 4. Parse chunk metadata and render final content
-	const rendered = renderProcessedDocument(
-		metadata,
-		chunkMetadata,
-		chunkContent,
-	);
+	if (!text) {
+		throw new Error("Failed to process content: empty LLM response");
+	}
 
-	// 5. Save processed content
+	// 3. Render final content with document-level YAML only
+	const rendered = renderProcessedDocument(tags, text);
+
+	// 4. Save processed content
 	await ctx.storage.saveProcessedContent(ref, rendered);
 
 	ctx.logger?.info?.("Document processed", {
 		ref,
-		chunks: chunkMetadata.length,
-		bytes: contentLength,
+		inputCacheReadTokens: usage?.inputTokenDetails.cacheReadTokens,
+		inputCacheWriteTokens: usage?.inputTokenDetails.cacheWriteTokens,
+		inputTokens: usage?.inputTokens,
+		outputTokens: usage?.outputTokens,
+		totalTokens: usage?.totalTokens,
 	});
 }
 
