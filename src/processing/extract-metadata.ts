@@ -1,6 +1,5 @@
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
+import { type LanguageModel, generateText } from "ai";
 import YAML from "yaml";
-import type { LlmClient } from "../llm/llm-factory.js";
 import type { Metadata } from "../types.js";
 
 const createExtractMetadataPrompt = (
@@ -34,26 +33,22 @@ export async function extractMetadata(
 	chunkedContent: string,
 	domain: string,
 	metadataSchema: string,
-	llm: LlmClient,
+	model: LanguageModel,
 ): Promise<Metadata[]> {
 	const prompt = createExtractMetadataPrompt(
 		chunkedContent,
 		domain,
 		metadataSchema,
 	);
-	const messages: ChatCompletionMessageParam[] = [
-		{ role: "user", content: prompt },
-	];
 
-	const completion = await llm.client.chat.completions.parse({
-		model: llm.model,
-		messages,
+	const { text } = await generateText({
+		model,
+		prompt,
 	});
 
-	const content = completion.choices[0]?.message?.content;
-	if (!content) {
+	if (!text) {
 		throw new Error("Failed to extract metadata: empty LLM response");
 	}
 
-	return YAML.parse(content) as Metadata[];
+	return YAML.parse(text) as Metadata[];
 }

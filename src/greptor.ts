@@ -7,7 +7,6 @@ import type {
 
 import path from "node:path";
 import YAML from "yaml";
-import { createLlmClient } from "./llm/llm-factory.js";
 import { initializeMetadataSchema } from "./metadata-schema/initialize.js";
 import {
 	createProcessingQueue,
@@ -26,7 +25,7 @@ export interface Greptor {
 }
 
 export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
-	const { baseDir, logger } = options;
+	const { baseDir, logger, model } = options;
 	const contentPath = path.join(baseDir, "content");
 	const storage = createFileStorage(contentPath);
 
@@ -34,7 +33,7 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 
 	const metadataSchema = await initializeMetadataSchema(
 		storage.baseDir,
-		options.llmModel,
+		model,
 		options.topic,
 		options.metadataSchema,
 		logger,
@@ -47,11 +46,10 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		...(logger ? { logger } : {}),
 	});
 
-	const llm = createLlmClient(options.llmModel);
 	const ctx = {
 		domain: options.topic,
 		metadataSchema: YAML.stringify(metadataSchema),
-		llm,
+		model,
 		storage,
 		...(logger ? { logger } : {}),
 	};

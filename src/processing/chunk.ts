@@ -1,5 +1,4 @@
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
-import type { LlmClient } from "../llm/llm-factory.js";
+import { type LanguageModel, generateText } from "ai";
 
 const createCleanPrompt = (text: string, domain: string) => `
 Clean + structure the raw content into independent semantic chunks for domain: ${domain}
@@ -25,22 +24,18 @@ ${text}
 export async function chunk(
 	rawContent: string,
 	domain: string,
-	llm: LlmClient,
+	model: LanguageModel,
 ): Promise<string> {
 	const prompt = createCleanPrompt(rawContent, domain);
-	const messages: ChatCompletionMessageParam[] = [
-		{ role: "user", content: prompt },
-	];
 
-	const completion = await llm.client.chat.completions.parse({
-		model: llm.model,
-		messages,
+	const { text } = await generateText({
+		model,
+		prompt,
 	});
 
-	const content = completion.choices[0]?.message?.content;
-	if (!content) {
+	if (!text) {
 		throw new Error("Failed to clean content: empty LLM response");
 	}
 
-	return content;
+	return text;
 }

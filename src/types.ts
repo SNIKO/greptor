@@ -1,3 +1,4 @@
+import type { LanguageModel } from "ai";
 import type { DocumentRef } from "./storage/types.js";
 
 export interface Logger {
@@ -10,7 +11,7 @@ export interface Logger {
 export interface GreptorOptions {
 	baseDir: string;
 	topic: string;
-	llmModel: string;
+	model: LanguageModel;
 	workers?: number;
 	metadataSchema?: MetadataSchema;
 	logger?: Logger;

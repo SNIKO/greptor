@@ -34,22 +34,23 @@ bun add greptor
 
 ### Step 2: Initialize
 
-Create a Greptor instance with your base directory, topic, and LLM model.
+Create a Greptor instance with your base directory, topic, and AI SDK language model.
 
 ```typescript
 import { createGreptor } from 'greptor';
+import { openai } from "@ai-sdk/openai";
 
 // Create Greptor instance
 const greptor = await createGreptor({
   baseDir: './projects/investing',
   topic: 'Investing, stock market, financial, and macroeconomics',
-  llmModel: 'openai:gpt-5-mini'
+  model: openai("gpt-5-mini"),
 });
 ```
 
 - **`baseDir`**: Home directory for your project where all data will be stored.
 - **`topic`**: Helps Greptor understand your data better and generate a relevant metadata schema.
-- **`llmModel`**: OpenAI-compatible model for chunking and metadata extraction. You must provide an API key via environment variables.
+- **`model`**: A `LanguageModel` instance from [Vercel AI SDK](https://ai-sdk.dev).
 
 ### Step 3: Start Feeding Documents
 
@@ -252,30 +253,6 @@ done
 
 ## Configuration
 
-### LLM Model Format
-
-Greptor uses the following LLM model format: `provider:model-name`
-
-The provider is an OpenAI API-compatible provider, such as `openai`, `azure`, `ollama`, `deepseek`, etc.
-
-**Examples**:
-
-```typescript
-llmModel: 'openai:gpt-5-mini'
-llmModel: 'ollama:llama3-70b'
-```
-
-**Important**: Use a model at least at the level of GPT-5-mini or better.
-**Required Environment Variables**:
-
-```bash
-# For OpenAI models
-OPENAI_API_KEY=your_key_here
-
-# For Azure OpenAI models
-AZURE_API_KEY=your_key_here
-AZURE_API_BASE_URL=https://your-azure-endpoint.com/v1
-```
 
 ## Metadata Schemas
 
@@ -287,7 +264,7 @@ Here's a comprehensive example for investment research:
 const greptor = await createGreptor({
   baseDir: './projects/investing',
   topic: 'Investing, stock market, financial, and macroeconomics',
-  llmModel: 'openai:gpt-5-mini',
+  model: openai("gpt-5-mini"),
   metadataSchema: [
     {
       name: 'company',

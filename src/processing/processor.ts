@@ -1,5 +1,5 @@
+import type { LanguageModel } from "ai";
 import YAML from "yaml";
-import type { LlmClient } from "../llm/llm-factory.js";
 import type { DocumentRef, FileStorage } from "../storage/index.js";
 import type { Logger, Metadata } from "../types.js";
 import { chunk as chunkDocument } from "./chunk.js";
@@ -10,7 +10,7 @@ const DEFAULT_IDLE_SLEEP_MS = 750;
 export interface ProcessorContext {
 	domain: string;
 	metadataSchema: string;
-	llm: LlmClient;
+	model: LanguageModel;
 	storage: FileStorage;
 	logger?: Logger;
 }
@@ -81,7 +81,7 @@ async function processDocument(
 
 	// 2. Chunk content with LLM
 	ctx.logger?.debug?.("Chunking document", { ref, step: "chunk" });
-	const chunkContent = await chunkDocument(content, ctx.domain, ctx.llm);
+	const chunkContent = await chunkDocument(content, ctx.domain, ctx.model);
 
 	// 3. Extract metadata with LLM
 	ctx.logger?.debug?.("Extracting metadata", { ref, step: "metadata" });
@@ -89,7 +89,7 @@ async function processDocument(
 		chunkContent,
 		ctx.domain,
 		ctx.metadataSchema,
-		ctx.llm,
+		ctx.model,
 	);
 
 	// 4. Parse chunk metadata and render final content

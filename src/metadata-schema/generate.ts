@@ -1,6 +1,4 @@
-import { zodResponseFormat } from "openai/helpers/zod";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
-import { createLlmClient } from "../llm/llm-factory.js";
+import { type LanguageModel, Output, generateText } from "ai";
 import type { MetadataSchema, MetadataSchemaItem } from "../types.js";
 import { ResponseSchema } from "./types.js";
 
@@ -20,26 +18,21 @@ Use array types when multiple values are expected per chunk.
 
 export async function generateMetadataSchema(
 	topic: string,
-	llmModel: string,
+	model: LanguageModel,
 ): Promise<MetadataSchema> {
-	const { client, model } = createLlmClient(llmModel);
-
-	const messages: ChatCompletionMessageParam[] = [
-		{ role: "user", content: PROMPT_TEMPLATE(topic) },
-	];
-
-	const completion = await client.chat.completions.parse({
+	const { output } = await generateText({
 		model,
-		messages,
-		response_format: zodResponseFormat(ResponseSchema, "metadata_fields"),
+		prompt: PROMPT_TEMPLATE(topic),
+		output: Output.object({
+			schema: ResponseSchema,
+		}),
 	});
 
-	const parsed = completion.choices[0]?.message?.parsed;
-	if (!parsed?.metadata_fields) {
+	if (!output?.metadata_fields) {
 		throw new Error("Failed to parse metadata schema from LLM response");
 	}
 
-	return parsed.metadata_fields.map((field) => {
+	return output.metadata_fields.map((field) => {
 		const metadataField: MetadataSchemaItem = {
 			name: field.name,
 			type: field.type,

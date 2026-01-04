@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import type { LanguageModel } from "ai";
 import YAML from "yaml";
 import type { Logger } from "../types.js";
 import type { MetadataSchema } from "../types.js";
@@ -22,7 +23,7 @@ async function persist(
 
 export async function initializeMetadataSchema(
 	baseDir: string,
-	llmModel: string,
+	model: LanguageModel,
 	topic: string,
 	metadataSchema?: MetadataSchema,
 	logger?: Logger,
@@ -46,7 +47,7 @@ export async function initializeMetadataSchema(
 
 	// Otherwise, generate a new schema using the LLM
 	logger?.info?.("Generating metadata schema", { topic });
-	const schema = await generateMetadataSchema(topic, llmModel);
+	const schema = await generateMetadataSchema(topic, model);
 	await persist(schemaFilePath, schema, logger);
 	logger?.info?.("Metadata schema generated", {
 		path: schemaFilePath,
