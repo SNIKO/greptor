@@ -1,5 +1,11 @@
 # greptor
 
+## 0.5.0
+
+### Minor Changes
+
+- dda1fa8: add hooks to monitor the ingestion and processing pipeline
+
 ## 0.4.0
 
 ### Minor Changes
