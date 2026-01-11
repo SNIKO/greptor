@@ -7,7 +7,6 @@ import type {
 
 import path from "node:path";
 import YAML from "yaml";
-import { initializeTagSchema } from "./tag-schema/initialize.js";
 import {
 	createProcessingQueue,
 	enqueueUnprocessedDocuments,
@@ -15,6 +14,7 @@ import {
 } from "./processing/processor.js";
 import { generateSkill } from "./skills/skill-generator.js";
 import { createFileStorage } from "./storage/file-storage.js";
+import { initializeTagSchema } from "./tag-schema/initialize.js";
 
 export interface Greptor {
 	eat: (input: GreptorEatInput) => Promise<GreptorEatResult>;
@@ -25,25 +25,21 @@ export interface Greptor {
 }
 
 export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
-	const { baseDir, logger, model } = options;
+	const { baseDir, model, hooks } = options;
 	const contentPath = path.join(baseDir, "content");
 	const storage = createFileStorage(contentPath);
-
-	logger?.debug?.("Initializing Greptor", { baseDir, topic: options.topic });
 
 	const tagSchema = await initializeTagSchema(
 		storage.baseDir,
 		model,
 		options.topic,
 		options.tagSchema,
-		logger,
 	);
 
 	const queue = createProcessingQueue();
 	const queuedCount = await enqueueUnprocessedDocuments({
 		storage,
 		queue,
-		...(logger ? { logger } : {}),
 	});
 
 	const ctx = {
@@ -51,19 +47,21 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		tagSchema: YAML.stringify(tagSchema),
 		model,
 		storage,
-		...(logger ? { logger } : {}),
+		hooks,
 	};
 
 	startBackgroundWorkers({ ctx, queue, concurrency: options.workers ?? 1 });
 
-	logger?.info?.("Greptor initialized", {
-		topic: options.topic,
-		queued: queuedCount,
-	});
-
 	async function eat(input: GreptorEatInput): Promise<GreptorEatResult> {
 		if (input.format !== "text") {
-			logger?.warn?.("Unsupported format", { format: input.format });
+			hooks?.onError?.({
+				error: new Error(`Unsupported format: ${input.format}`),
+				context: {
+					source: input.source,
+					publisher: input.publisher,
+					label: input.label,
+				},
+			});
 			return {
 				success: false,
 				message: `Unsupported format: ${input.format}`,
@@ -73,10 +71,6 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		const res = await storage.saveRawContent(input);
 
 		if (res.type === "duplicate") {
-			logger?.warn?.("Attempt to add duplicate document", {
-				ref: res.ref,
-				label: input.label,
-			});
 			return {
 				success: false,
 				message: "Document already exists.",
@@ -84,6 +78,14 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		}
 
 		if (res.type === "error") {
+			hooks?.onError?.({
+				error: new Error(res.message),
+				context: {
+					source: input.source,
+					publisher: input.publisher,
+					label: input.label,
+				},
+			});
 			return {
 				success: false,
 				message: res.message,
@@ -91,7 +93,6 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		}
 
 		queue.enqueue(res.ref);
-		logger?.info?.("Document ingested", { ref: res.ref, label: input.label });
 
 		return {
 			success: true,
@@ -105,10 +106,6 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		overwrite = false,
 	): Promise<CreateSkillResult> {
 		try {
-			logger?.info?.("Generating Claude Code skill", {
-				domain: options.topic,
-			});
-
 			const { skillPath } = await generateSkill(
 				{
 					domain: options.topic,
@@ -128,7 +125,9 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		} catch (error) {
 			const errorMessage =
 				error instanceof Error ? error.message : String(error);
-			logger?.error?.(`Skill generation failed:\n${errorMessage}`);
+			hooks?.onError?.({
+				error: error instanceof Error ? error : new Error(errorMessage),
+			});
 			return {
 				success: false,
 				message: errorMessage,

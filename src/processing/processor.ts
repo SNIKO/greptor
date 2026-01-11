@@ -1,7 +1,7 @@
-import { type LanguageModel, generateText } from "ai";
+import { type LanguageModel, type LanguageModelUsage, generateText } from "ai";
 import YAML from "yaml";
 import type { DocumentRef, FileStorage } from "../storage/index.js";
-import type { Logger, Tags } from "../types.js";
+import type { GreptorHooks, Tags } from "../types.js";
 
 const DEFAULT_IDLE_SLEEP_MS = 750;
 
@@ -10,7 +10,7 @@ export interface ProcessorContext {
 	tagSchema: string;
 	model: LanguageModel;
 	storage: FileStorage;
-	logger?: Logger;
+	hooks?: GreptorHooks | undefined;
 }
 
 export interface ProcessingQueue {
@@ -125,12 +125,11 @@ ${rawContent}
 async function processDocument(
 	ref: DocumentRef,
 	ctx: ProcessorContext,
-): Promise<void> {
+): Promise<LanguageModelUsage> {
 	// 1. Read raw content
 	const { tags, content } = await ctx.storage.readRawContent(ref);
 
 	// 2. Clean + chunk + tag with a single LLM call
-	ctx.logger?.debug?.("Processing document", { ref, step: "single-pass" });
 	const prompt = createProcessingPrompt(content, ctx.domain, ctx.tagSchema);
 
 	const { text, usage } = await generateText({
@@ -147,15 +146,7 @@ async function processDocument(
 
 	// 4. Save processed content
 	await ctx.storage.saveProcessedContent(ref, rendered);
-
-	ctx.logger?.info?.("Document processed", {
-		ref,
-		inputCacheReadTokens: usage?.inputTokenDetails.cacheReadTokens,
-		inputCacheWriteTokens: usage?.inputTokenDetails.cacheWriteTokens,
-		inputTokens: usage?.inputTokens,
-		outputTokens: usage?.outputTokens,
-		totalTokens: usage?.totalTokens,
-	});
+	return usage;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -176,51 +167,130 @@ export function startBackgroundWorkers(args: {
 	const idleSleepMs = Math.max(50, args.idleSleepMs ?? DEFAULT_IDLE_SLEEP_MS);
 	const { ctx, queue } = args;
 
-	async function workerLoop(workerIndex: number): Promise<void> {
+	// Shared run state across workers
+	let runActive = false;
+	let runStartTime = 0;
+	let queueSize = 0;
+	let runSuccessCount = 0;
+	let runFailureCount = 0;
+	let runInFlightCount = 0;
+
+	function startRun(totalDocs: number): void {
+		runActive = true;
+		runStartTime = Date.now();
+		queueSize = totalDocs;
+		runSuccessCount = 0;
+		runFailureCount = 0;
+
+		ctx.hooks?.onProcessingRunStarted?.({
+			documentsToProcess: totalDocs,
+			totalDocuments: totalDocs,
+		});
+	}
+
+	function endRun(): void {
+		if (!runActive) return;
+		runActive = false;
+
+		ctx.hooks?.onProcessingRunCompleted?.({
+			successful: runSuccessCount,
+			failed: runFailureCount,
+			elapsedMs: Date.now() - runStartTime,
+		});
+	}
+
+	function tryEndRun(): void {
+		if (!runActive) return;
+		if (queue.size() === 0 && runInFlightCount === 0) {
+			endRun();
+		}
+	}
+
+	async function workerLoop(): Promise<void> {
 		while (true) {
+			queueSize = queue.size() + runInFlightCount;
+
+			// Start a new run if there are items and no run is active
+			if (queueSize > 0 && !runActive) {
+				startRun(queueSize);
+			}
+
 			const docRef = queue.dequeue();
 			if (!docRef) {
+				// Only end when no docs are in-flight across workers
+				tryEndRun();
 				await sleep(idleSleepMs);
 				continue;
 			}
 
-			ctx.logger?.debug?.("Processing started", {
-				worker: workerIndex,
-				ref: docRef,
+			runInFlightCount++;
+
+			// Parse document metadata from ref for hooks
+			const refParts = docRef.split("/");
+			const filename = refParts[refParts.length - 1] ?? "";
+			const source = refParts[0] ?? "";
+			const publisher = refParts.length > 3 ? refParts[1] : undefined;
+			const label = filename.replace(/\.md$/, "");
+
+			const docStartTime = Date.now();
+
+			ctx.hooks?.onDocumentProcessingStarted?.({
+				source,
+				publisher,
+				label,
+				successful: runSuccessCount,
+				failed: runFailureCount,
+				queueSize: queueSize,
 			});
+
+			let usage: LanguageModelUsage | undefined;
+			let success = false;
+
 			try {
-				await processDocument(docRef, ctx);
+				usage = await processDocument(docRef, ctx);
+				runSuccessCount++;
+				success = true;
 			} catch (error) {
-				ctx.logger?.error?.("Processing failed", {
-					err: error,
-					ref: docRef,
-					worker: workerIndex,
+				runFailureCount++;
+				ctx.hooks?.onError?.({
+					error: error instanceof Error ? error : new Error(String(error)),
+					context: { source, publisher, label, ref: docRef },
 				});
+			} finally {
+				runInFlightCount--;
 			}
+
+			ctx.hooks?.onDocumentProcessingCompleted?.({
+				success,
+				source,
+				publisher,
+				label,
+				successful: runSuccessCount,
+				failed: runFailureCount,
+				queueSize: queueSize,
+				elapsedMs: Date.now() - docStartTime,
+				inputTokens: usage?.inputTokens ?? 0,
+				outputTokens: usage?.outputTokens ?? 0,
+				totalTokens: usage?.totalTokens ?? 0,
+			});
+
+			tryEndRun();
 		}
 	}
 
 	for (let i = 0; i < concurrency; i++) {
-		workerLoop(i + 1);
+		workerLoop();
 	}
-
-	ctx.logger?.debug?.("Background workers started", { concurrency });
 }
 
 export async function enqueueUnprocessedDocuments(args: {
 	storage: FileStorage;
 	queue: ProcessingQueue;
-	logger?: Logger;
 }): Promise<number> {
 	const refs = await args.storage.getUnprocessedContents();
 
 	for (const ref of refs) {
-		args.logger?.debug?.("Queued unprocessed document", { ref });
 		args.queue.enqueue(ref);
-	}
-
-	if (refs.length > 0) {
-		args.logger?.debug?.("Found unprocessed documents", { count: refs.length });
 	}
 
 	return refs.length;

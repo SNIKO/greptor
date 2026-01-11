@@ -296,6 +296,74 @@ rg -n -C 6 "narrative=ev_transition" content/processed/ | rg "sentiment=bearish"
 
 ## Configuration
 
+### Event Hooks
+
+Greptor provides optional hooks to monitor the ingestion and processing pipeline. These are useful for logging, metrics, progress tracking, or building custom UIs.
+
+```typescript
+const greptor = await createGreptor({
+  baseDir: './projects/investing',
+  topic: 'Investing, stock market, financial, and macroeconomics',
+  model: openai("gpt-5-mini"),
+  hooks: {
+    onProcessingRunStarted: ({ documentsToProcess, totalDocuments }) => {
+      console.log(`📋 Starting processing run: ${documentsToProcess} documents queued`);
+    },
+    
+    onDocumentProcessingStarted: ({ source, publisher, label, successful, failed, queueSize }) => {
+      const processed = successful + failed;
+      console.log(`[${processed}/${queueSize}] Processing: ${source}/${publisher}/${label}`);
+    },
+    
+    onDocumentProcessingCompleted: ({ 
+      success, 
+      label, 
+      successful, 
+      failed, 
+      queueSize,
+      elapsedMs,
+      inputTokens,
+      outputTokens,
+      totalTokens
+    }) => {
+      const processed = successful + failed;
+      const status = success ? '✓' : '✗';
+      console.log(
+        `[${processed}/${queueSize}] ${status} ${label} (${elapsedMs}ms, ${totalTokens} tokens)`
+      );
+    },
+    
+    onProcessingRunCompleted: ({ successful, failed, elapsedMs }) => {
+      const total = successful + failed;
+      console.log(
+        `✨ Run complete: ${successful}/${total} succeeded in ${(elapsedMs / 1000).toFixed(1)}s`
+      );
+      if (failed > 0) {
+        console.log(`⚠️  ${failed} documents failed`);
+      }
+    },
+    
+    onError: ({ error, context }) => {
+      if (context?.label) {
+        console.error(`❌ Error processing ${context.label}: ${error.message}`);
+      } else {
+        console.error(`❌ Error: ${error.message}`);
+      }
+    },
+  },
+});
+```
+
+#### Available Hooks
+
+| Hook | When Called | Event Data |
+|------|-------------|------------|
+| `onProcessingRunStarted` | When background workers detect queued documents | `documentsToProcess`, `totalDocuments` |
+| `onDocumentProcessingStarted` | Before processing each document | `source`, `publisher`, `label`, `successful`, `failed`, `queueSize` |
+| `onDocumentProcessingCompleted` | After processing succeeds or fails | `success`, `source`, `publisher`, `label`, `successful`, `failed`, `queueSize`, `elapsedMs`, `inputTokens`, `outputTokens`, `totalTokens` |
+| `onProcessingRunCompleted` | When all queued documents are processed | `successful`, `failed`, `elapsedMs` |
+| `onError` | When errors occur during processing or ingestion | `error`, `context` (with optional `source`, `publisher`, `label`, `ref`) |
+
 
 ## Tag Schemas
 

@@ -6,11 +6,64 @@ export type {
 	TagSchemaItem,
 } from "./tag-schema/types.js";
 
-export interface Logger {
-	debug?: (message: string, ...meta: unknown[]) => void;
-	info?: (message: string, ...meta: unknown[]) => void;
-	warn?: (message: string, ...meta: unknown[]) => void;
-	error?: (message: string | Error, ...meta: unknown[]) => void;
+/** Event data for when a processing run starts */
+export interface ProcessingRunStartedEvent {
+	documentsToProcess: number;
+	totalDocuments: number;
+}
+
+/** Event data for when a processing run completes */
+export interface ProcessingRunCompletedEvent {
+	successful: number;
+	failed: number;
+	elapsedMs: number;
+}
+
+/** Event data for when document processing starts */
+export interface DocumentProcessingStartedEvent {
+	source: string;
+	publisher?: string | undefined;
+	label: string;
+	successful: number;
+	failed: number;
+	queueSize: number;
+}
+
+/** Event data for when document processing completes */
+export interface DocumentProcessingCompletedEvent {
+	success: boolean;
+	source: string;
+	publisher?: string | undefined;
+	label: string;
+	successful: number;
+	failed: number;
+	queueSize: number;
+	elapsedMs: number;
+	inputTokens: number;
+	outputTokens: number;
+	totalTokens: number;
+}
+
+/** Event data for errors */
+export interface ErrorEvent {
+	error: Error;
+	context?: {
+		source?: string | undefined;
+		publisher?: string | undefined;
+		label?: string | undefined;
+		ref?: DocumentRef | undefined;
+	};
+}
+
+/** Optional hooks for Greptor events */
+export interface GreptorHooks {
+	onProcessingRunStarted?: (event: ProcessingRunStartedEvent) => void;
+	onProcessingRunCompleted?: (event: ProcessingRunCompletedEvent) => void;
+	onDocumentProcessingStarted?: (event: DocumentProcessingStartedEvent) => void;
+	onDocumentProcessingCompleted?: (
+		event: DocumentProcessingCompletedEvent,
+	) => void;
+	onError?: (event: ErrorEvent) => void;
 }
 
 export interface GreptorOptions {
@@ -19,7 +72,7 @@ export interface GreptorOptions {
 	model: LanguageModel;
 	workers?: number;
 	tagSchema?: TagSchema;
-	logger?: Logger;
+	hooks?: GreptorHooks;
 }
 
 export type SupportedFormat = "text";
