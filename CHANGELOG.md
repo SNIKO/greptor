@@ -1,5 +1,11 @@
 # greptor
 
+## 0.5.1
+
+### Patch Changes
+
+- 33383ed: fixed queue size calculation for hooks
+
 ## 0.5.0
 
 ### Minor Changes
