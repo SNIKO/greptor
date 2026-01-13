@@ -76,7 +76,6 @@ Optimize for **single-pass grep scanning**: a single grep hit should reveal what
 
 ## Output Format (Markdown only)
 
-\`\`\`md
 ## 01 Short descriptive title for chunk 1
 field_1=value_1,value_4
 field_2=value_2,
@@ -88,7 +87,6 @@ field_1=value_1
 field_4=value_4
 field_5=value_5,value_6
 <cleaned, condensed content>
-\`\`\`
 
 ## Tagging Rules
 - Use ONLY fields defined in the SCHEMA (field names must exactly match schema).
@@ -125,9 +123,10 @@ ${rawContent}
 async function processDocument(
 	ref: DocumentRef,
 	ctx: ProcessorContext,
+	raw?: { tags: Tags; content: string },
 ): Promise<LanguageModelUsage> {
 	// 1. Read raw content
-	const { tags, content } = await ctx.storage.readRawContent(ref);
+	const { tags, content } = raw ?? (await ctx.storage.readRawContent(ref));
 
 	// 2. Clean + chunk + tag with a single LLM call
 	const prompt = createProcessingPrompt(content, ctx.domain, ctx.tagSchema);
@@ -147,6 +146,33 @@ async function processDocument(
 	// 4. Save processed content
 	await ctx.storage.saveProcessedContent(ref, rendered);
 	return usage;
+}
+
+function resolveDocumentMetadata(
+	ref: DocumentRef,
+	tags?: Tags,
+): { source: string; publisher?: string | undefined; label: string } {
+	const refParts = ref.split("/");
+	const filename = refParts[refParts.length - 1] ?? "";
+	let source = refParts[0] ?? "";
+	let publisher = refParts.length > 3 ? refParts[1] : undefined;
+	let label = filename.replace(/\.md$/, "");
+
+	const tagSource = tags?.source;
+	const tagPublisher = tags?.publisher;
+	const tagTitle = tags?.title;
+
+	if (typeof tagSource === "string" && tagSource.trim()) {
+		source = tagSource;
+	}
+	if (typeof tagPublisher === "string" && tagPublisher.trim()) {
+		publisher = tagPublisher;
+	}
+	if (typeof tagTitle === "string" && tagTitle.trim()) {
+		label = tagTitle;
+	}
+
+	return { source, publisher, label };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -170,15 +196,20 @@ export function startBackgroundWorkers(args: {
 	// Shared run state across workers
 	let runActive = false;
 	let runStartTime = 0;
-	let queueSize = 0;
 	let runSuccessCount = 0;
 	let runFailureCount = 0;
 	let runInFlightCount = 0;
 
+	function getQueueTotals() {
+		const processed = runActive ? runSuccessCount + runFailureCount : 0;
+		const pending = queue.size();
+		const total = processed + pending + runInFlightCount;
+		return { processed, pending, total };
+	}
+
 	function startRun(totalDocs: number): void {
 		runActive = true;
 		runStartTime = Date.now();
-		queueSize = totalDocs;
 		runSuccessCount = 0;
 		runFailureCount = 0;
 
@@ -208,11 +239,11 @@ export function startBackgroundWorkers(args: {
 
 	async function workerLoop(): Promise<void> {
 		while (true) {
-			queueSize = queue.size() + runInFlightCount;
+			const { total } = getQueueTotals();
 
 			// Start a new run if there are items and no run is active
-			if (queueSize > 0 && !runActive) {
-				startRun(queueSize);
+			if (total > 0 && !runActive) {
+				startRun(total);
 			}
 
 			const docRef = queue.dequeue();
@@ -225,14 +256,22 @@ export function startBackgroundWorkers(args: {
 
 			runInFlightCount++;
 
-			// Parse document metadata from ref for hooks
-			const refParts = docRef.split("/");
-			const filename = refParts[refParts.length - 1] ?? "";
-			const source = refParts[0] ?? "";
-			const publisher = refParts.length > 3 ? refParts[1] : undefined;
-			const label = filename.replace(/\.md$/, "");
+			let raw: { tags: Tags; content: string } | undefined;
+			let readError: Error | undefined;
+
+			try {
+				raw = await ctx.storage.readRawContent(docRef);
+			} catch (error) {
+				readError = error instanceof Error ? error : new Error(String(error));
+			}
+
+			const { source, publisher, label } = resolveDocumentMetadata(
+				docRef,
+				raw?.tags,
+			);
 
 			const docStartTime = Date.now();
+			const { total: startTotal } = getQueueTotals();
 
 			ctx.hooks?.onDocumentProcessingStarted?.({
 				source,
@@ -240,14 +279,17 @@ export function startBackgroundWorkers(args: {
 				label,
 				successful: runSuccessCount,
 				failed: runFailureCount,
-				queueSize: queueSize,
+				queueSize: startTotal,
 			});
 
 			let usage: LanguageModelUsage | undefined;
 			let success = false;
 
 			try {
-				usage = await processDocument(docRef, ctx);
+				if (readError) {
+					throw readError;
+				}
+				usage = await processDocument(docRef, ctx, raw);
 				runSuccessCount++;
 				success = true;
 			} catch (error) {
@@ -260,6 +302,7 @@ export function startBackgroundWorkers(args: {
 				runInFlightCount--;
 			}
 
+			const { total: endTotal } = getQueueTotals();
 			ctx.hooks?.onDocumentProcessingCompleted?.({
 				success,
 				source,
@@ -267,7 +310,7 @@ export function startBackgroundWorkers(args: {
 				label,
 				successful: runSuccessCount,
 				failed: runFailureCount,
-				queueSize: queueSize,
+				queueSize: endTotal,
 				elapsedMs: Date.now() - docStartTime,
 				inputTokens: usage?.inputTokens ?? 0,
 				outputTokens: usage?.outputTokens ?? 0,
