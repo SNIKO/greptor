@@ -66,10 +66,33 @@ export interface GreptorHooks {
 	onError?: (event: ErrorEvent) => void;
 }
 
+export interface ModelConfig {
+	/**
+	 * The name of the AI SDK provider fro [AI SDK ecosystem](https://sdk.vercel.ai/providers/ai-sdk-providers):
+   - `@ai-sdk/openai` - OpenAI (GPT-4, GPT-4o, etc.)
+   - `@ai-sdk/anthropic` - Anthropic (Claude)
+   - `@ai-sdk/groq` - Groq (fast inference)
+   - `@ai-sdk/openai-compatible` - OpenAI-compatible endpoints (NVIDIA NIM, OpenRouter, etc.)
+   - And [many more](https://sdk.vercel.ai/providers/ai-sdk-providers)...
+	 */
+	provider: string;
+
+	/**
+	 * The model ID to use (specific to the provider).
+	 */
+	model: string;
+
+	/**
+	 * Configuration options passed to the provider factory function.
+	 * Examples: apiKey, baseURL, etc.
+	 */
+	options?: Record<string, unknown>;
+}
+
 export interface GreptorOptions {
 	baseDir: string;
 	topic: string;
-	model: LanguageModel;
+	model: ModelConfig;
 	workers?: number;
 	tagSchema?: TagSchema;
 	hooks?: GreptorHooks;
