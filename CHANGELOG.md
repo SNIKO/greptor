@@ -1,5 +1,11 @@
 # greptor
 
+## 0.6.0
+
+### Minor Changes
+
+- a97ab55: Enhance model configuration by providing model config rather than an instance form ai sdk
+
 ## 0.5.1
 
 ### Patch Changes
