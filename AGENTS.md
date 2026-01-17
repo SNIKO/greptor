@@ -75,26 +75,19 @@ The library operates on a simple, grep-optimized storage model:
 ### Directory Structure
 ```
 src/
-├── index.ts                  # Library exports
-├── greptor.ts                # Main entry point (factory)
-├── types.ts                  # Shared interfaces
-├── tag-schema/
-│   ├── initialize.ts
-│   ├── generate.ts
-│   └── types.ts
-├── llm/
-│   └── llm-factory.ts
-├── processing/
-│   └── processor.ts
-├── storage/
-│   ├── file-storage.ts
-│   ├── types.ts
+├── index.ts                  # Re-export library API
+├── cli/                      # CLI implementation
 │   └── index.ts
-├── skills/
-│   └── skill-generator.ts
-└── utils/
-    ├── file.ts
-    └── hash.ts
+├── lib/                      # Core library logic
+│   ├── greptor.ts            # Main entry point (factory)
+│   ├── index.ts              # Library exports
+│   ├── types.ts              # Shared interfaces
+│   ├── tag-schema/
+│   ├── llm/
+│   ├── processing/
+│   ├── storage/
+│   ├── skills/
+│   └── utils/
 ```
 
 **Version**: 0.1.0 | **Ratified**: 2026-01-02 | **Last Amended**: 2026-01-02
