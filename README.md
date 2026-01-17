@@ -34,23 +34,59 @@ bun add greptor
 
 ### Step 2: Initialize
 
-Create a Greptor instance with your base directory, topic, and AI SDK language model.
+Create a Greptor instance with your base directory, topic, and model config.
 
 ```typescript
 import { createGreptor } from 'greptor';
-import { openai } from "@ai-sdk/openai";
 
 // Create Greptor instance
 const greptor = await createGreptor({
   baseDir: './projects/investing',
   topic: 'Investing, stock market, financial, and macroeconomics',
-  model: openai("gpt-5-mini"),
+  model: {
+    provider: "@ai-sdk/openai",
+    model: "gpt-5-mini",
+  },
 });
 ```
 
 - **`baseDir`**: Home directory for your project where all data will be stored.
 - **`topic`**: Helps Greptor understand your data better and generate a relevant tag schema.
-- **`model`**: A `LanguageModel` instance from [Vercel AI SDK](https://ai-sdk.dev).
+- **`model`**: A config object with `provider`, `model`, and optional `options` for the [Vercel AI SDK](https://ai-sdk.dev).
+
+#### Model Config
+
+Greptor uses an LLM (via [Greptor](https://github.com/greptorio/greptor)) to process content. You'll need to:
+
+1. **Choose a provider** from the [AI SDK ecosystem](https://sdk.vercel.ai/providers/ai-sdk-providers):
+   - `@ai-sdk/openai` - OpenAI (GPT-4, GPT-4o, etc.)
+   - `@ai-sdk/anthropic` - Anthropic (Claude)
+   - `@ai-sdk/groq` - Groq (fast inference)
+   - `@ai-sdk/openai-compatible` - OpenAI-compatible endpoints (NVIDIA NIM, OpenRouter, etc.)
+   - And [many more](https://sdk.vercel.ai/providers/ai-sdk-providers)...
+
+2. **Get an API key** from your provider and set it as an environment variable:
+   ```bash
+   export OPENAI_API_KEY="sk-..."
+   # or add to ~/.bashrc, ~/.zshrc, etc.
+   ```
+
+3. **Provide it in the model config** when creating Greptor.
+   ```typescript
+	 const greptor = await createGreptor({
+		baseDir: './projects/investing',
+		topic: 'Investing, stock market, financial, and macroeconomics',
+		model: {
+			provider: "@ai-sdk/openai-compatible",
+			model: "z-ai/glm4.7",
+			name: "nvidia",
+			options: {
+				baseURL: "https://integrate.api.nvidia.com/v1",
+				apiKey: process.env.NVIDIA_API_KEY,
+			},
+		},
+	});
+	 ```
 
 ### Step 3: Start Feeding Documents
 
@@ -304,7 +340,10 @@ Greptor provides optional hooks to monitor the ingestion and processing pipeline
 const greptor = await createGreptor({
   baseDir: './projects/investing',
   topic: 'Investing, stock market, financial, and macroeconomics',
-  model: openai("gpt-5-mini"),
+  model: {
+    provider: "@ai-sdk/openai",
+    model: "gpt-5-mini",
+  },
   hooks: {
     onProcessingRunStarted: ({ documentsToProcess, totalDocuments }) => {
       console.log(`📋 Starting processing run: ${documentsToProcess} documents queued`);
@@ -375,7 +414,10 @@ Here's a comprehensive example for investment research:
 const greptor = await createGreptor({
   baseDir: './projects/investing',
   topic: 'Investing, stock market, financial, and macroeconomics',
-  model: openai("gpt-5-mini"),
+  model: {
+    provider: "@ai-sdk/openai",
+    model: "gpt-5-mini",
+  },
   tagSchema: [
     {
       name: 'company',

@@ -7,6 +7,7 @@ import type {
 
 import path from "node:path";
 import YAML from "yaml";
+import { resolveModel } from "./llm/llm-factory.js";
 import {
 	createProcessingQueue,
 	enqueueUnprocessedDocuments,
@@ -25,7 +26,8 @@ export interface Greptor {
 }
 
 export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
-	const { baseDir, model, hooks } = options;
+	const { baseDir, hooks } = options;
+	const model = await resolveModel(options.model);
 	const contentPath = path.join(baseDir, "content");
 	const storage = createFileStorage(contentPath);
 
