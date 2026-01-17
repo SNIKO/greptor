@@ -1,7 +1,7 @@
 import { type LanguageModel, Output, generateText } from "ai";
 import { z } from "zod";
+import { TagFieldSchema } from "../config.js";
 import type { TagSchema, TagSchemaItem } from "../types.js";
-import { TagFieldSchema } from "./types.js";
 
 const PROMPT_TEMPLATE = (topic: string) => `
 You are an expert information architect designing tag schemas that improve text search, discovery, and retrieval within a specific knowledge topic.

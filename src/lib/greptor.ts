@@ -7,6 +7,7 @@ import type {
 
 import path from "node:path";
 import YAML from "yaml";
+import { writeConfig } from "./config.js";
 import { resolveModel } from "./llm/llm-factory.js";
 import {
 	createProcessingQueue,
@@ -37,6 +38,11 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		options.topic,
 		options.tagSchema,
 	);
+
+	await writeConfig(baseDir, {
+		domain: options.topic,
+		tagSchema,
+	});
 
 	const queue = createProcessingQueue();
 	const queuedCount = await enqueueUnprocessedDocuments({

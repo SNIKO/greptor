@@ -8,6 +8,7 @@ export type {
 	ErrorEvent,
 } from "./types.js";
 
+export * from "./config.js";
 export type { Greptor } from "./greptor.js";
 export { createGreptor } from "./greptor.js";
 

@@ -1,10 +1,10 @@
 import type { LanguageModel } from "ai";
+import type { TagSchema } from "./config.js";
 import type { DocumentRef } from "./storage/types.js";
-import type { TagSchema } from "./tag-schema/types.js";
 export type {
 	TagSchema,
 	TagSchemaItem,
-} from "./tag-schema/types.js";
+} from "./config.js";
 
 /** Event data for when a processing run starts */
 export interface ProcessingRunStartedEvent {
