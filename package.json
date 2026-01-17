@@ -12,7 +12,7 @@
 	"keywords": ["grep", "search", "ingestion", "llm", "rag", "markdown", "yaml"],
 	"main": "./dist/index.js",
 	"bin": {
-		"greptor": "./dist/cli/index.js"
+		"greptor": "./dist/cli/app.js"
 	},
 	"sideEffects": false,
 	"files": ["dist", "README.md", "LICENSE"],
@@ -26,6 +26,7 @@
 	},
 	"types": "./dist/index.d.ts",
 	"scripts": {
+		"dev": "bun run --watch src/cli/app.ts",
 		"build": "rm -rf dist && bun node_modules/typescript/bin/tsc",
 		"prepublishOnly": "npm run build",
 		"demo": "bun run scripts/test.ts",
@@ -66,9 +67,9 @@
 		"@ai-sdk/togetherai": "1.0.30",
 		"@ai-sdk/vercel": "1.0.31",
 		"@ai-sdk/xai": "2.0.42",
-		"@clack/prompts": "^0.11.0",
+		"@clack/prompts": "1.0.0-alpha.1",
+		"@stricli/core": "^1.2.5",
 		"ai": "^6.0.6",
-		"cac": "^6.7.14",
 		"yaml": "^2.8.2",
 		"zod": "^4.1.12"
 	}
