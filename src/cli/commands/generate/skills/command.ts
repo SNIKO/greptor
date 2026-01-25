@@ -10,9 +10,7 @@ import {
 	spinner,
 } from "@clack/prompts";
 import { buildCommand } from "@stricli/core";
-import YAML from "yaml";
-import type { GreptorConfig } from "../../../../lib/config.js";
-import { CONFIG_FILENAME } from "../../../../lib/config.js";
+import { findConfigFile, readConfig } from "../../../../lib/config.js";
 import { generateSkill } from "./generator.js";
 import type { AgentType, GreptorPaths } from "./types.js";
 
@@ -24,13 +22,13 @@ import {
 async function findGreptorPaths(workspacePath: string): Promise<GreptorPaths> {
 	let rawPath: string | undefined;
 	let processedPath: string | undefined;
-	let configPath: string | undefined;
+	const configPath = await findConfigFile(".");
 
 	const queue = [workspacePath];
 	const visited = new Set<string>();
 
 	while (queue.length > 0) {
-		if (rawPath && processedPath && configPath) {
+		if (rawPath && processedPath) {
 			break;
 		}
 
@@ -52,8 +50,6 @@ async function findGreptorPaths(workspacePath: string): Promise<GreptorPaths> {
 						rawPath = fullPath;
 					} else if (entry.name === PROCESSED_DIR_NAME && !processedPath) {
 						processedPath = fullPath;
-					} else if (entry.name === ".greptor" && !configPath) {
-						configPath = path.join(fullPath, CONFIG_FILENAME);
 					} else {
 						queue.push(fullPath);
 					}
@@ -124,10 +120,8 @@ async function generateSkillsCommand(): Promise<void> {
 
 		// Step 4: Load config.yaml from workspace
 		s.start("Loading config.yaml...");
-		const config = YAML.parse(
-			await readFile(greptorPaths.configPath, "utf-8"),
-		) as GreptorConfig;
-		if (!config.domain || !config.tagSchema || config.tagSchema.length === 0) {
+		const config = await readConfig(greptorPaths.configPath);
+		if (!config?.domain || !config.tagSchema || config.tagSchema.length === 0) {
 			s.stop("Invalid config");
 			cancel("Invalid configuration");
 			return;
