@@ -20,10 +20,9 @@ export interface Greptor {
 }
 
 export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
-	const { baseDir, hooks } = options;
+	const { basePath, hooks } = options;
 	const model = await resolveModel(options.model);
-	const contentPath = path.join(baseDir, "content");
-	const storage = createFileStorage(contentPath);
+	const storage = createFileStorage(basePath);
 
 	if (!options.tagSchema || options.tagSchema.length === 0) {
 		throw new Error(
@@ -31,7 +30,7 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		);
 	}
 
-	await writeConfig(baseDir, {
+	await writeConfig(basePath, {
 		domain: options.topic,
 		tagSchema: options.tagSchema,
 	});

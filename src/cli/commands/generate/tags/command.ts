@@ -1,5 +1,3 @@
-import { readFile, readdir } from "node:fs/promises";
-import path from "node:path";
 import {
 	cancel,
 	intro,
@@ -11,57 +9,22 @@ import {
 } from "@clack/prompts";
 import { buildCommand } from "@stricli/core";
 import YAML from "yaml";
-import { CONFIG_FILENAME } from "../../../../lib/config.js";
+import { findConfigFile, readConfig } from "../../../../lib/config.js";
 import { resolveModel } from "../../../../lib/llm/llm-factory.js";
 import type { ModelConfig } from "../../../../lib/types.js";
 import { readAuthStore } from "../../../utils/auth.js";
 import { generateTagSchema } from "./generator.js";
 
-async function findGreptorConfigPath(
-	workspacePath: string,
-): Promise<string | undefined> {
-	const queue = [workspacePath];
-	const visited = new Set<string>();
-
-	while (queue.length > 0) {
-		const current = queue.shift();
-		if (!current || visited.has(current)) {
-			continue;
-		}
-
-		visited.add(current);
-
-		try {
-			const entries = await readdir(current, { withFileTypes: true });
-			for (const entry of entries) {
-				const fullPath = path.join(current, entry.name);
-				if (entry.isDirectory()) {
-					if (entry.name === ".greptor") {
-						const configFilePath = path.join(fullPath, CONFIG_FILENAME);
-						return configFilePath;
-					}
-					queue.push(fullPath);
-				}
-			}
-		} catch {}
-	}
-
-	return undefined;
-}
-
 async function loadDefaultDomain(): Promise<string> {
-	const configPath = await findGreptorConfigPath(".");
+	const configPath = await findConfigFile(".");
 
 	if (!configPath) {
 		return "";
 	}
 
 	try {
-		const parsed = YAML.parse(await readFile(configPath, "utf-8")) as {
-			domain?: unknown;
-		};
-
-		return typeof parsed.domain === "string" ? parsed.domain : "";
+		const parsed = await readConfig(configPath);
+		return parsed?.domain || "";
 	} catch {
 		return "";
 	}

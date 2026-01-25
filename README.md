@@ -34,14 +34,14 @@ bun add greptor
 
 ### Step 2: Initialize
 
-Create a Greptor instance with your base directory, topic, and model config.
+Create a Greptor instance with your base path, topic, and model config.
 
 ```typescript
 import { createGreptor } from 'greptor';
 
 // Create Greptor instance
 const greptor = await createGreptor({
-  baseDir: './projects/investing',
+  basePath: './projects/investing/content',
   topic: 'Investing, stock market, financial, and macroeconomics',
   model: {
     provider: "@ai-sdk/openai",
@@ -50,9 +50,13 @@ const greptor = await createGreptor({
 });
 ```
 
-- **`baseDir`**: Home directory for your project where all data will be stored.
+- **`basePath`**: Base directory where data will be stored.
 - **`topic`**: Helps Greptor understand your data better and generate a relevant tag schema.
 - **`model`**: A config object with `provider`, `model`, and optional `options` for the [Vercel AI SDK](https://ai-sdk.dev).
+
+Greptor will automatically create and manage the following structure in your basePath:
+- `raw/` - immediate raw content writes
+- `processed/` - enriched/processed content from background workers
 
 #### Model Config
 
@@ -74,7 +78,7 @@ Greptor uses an LLM (via [Greptor](https://github.com/greptorio/greptor)) to pro
 3. **Provide it in the model config** when creating Greptor.
    ```typescript
 	 const greptor = await createGreptor({
-		baseDir: './projects/investing',
+		basePath: './projects/investing/content',
 		topic: 'Investing, stock market, financial, and macroeconomics',
 		model: {
 			provider: "@ai-sdk/openai-compatible",
@@ -141,33 +145,32 @@ The skill is customized for the sources you provide and includes search tips bas
 
 ### Step 6: Run the Agent
 
-By this point, you should have the following structure in your `baseDir`:
+By this point, you should have the following structure in your `basePath`:
 
 ```
-./projects/investing/
+./projects/investing/content/
   .claude/
     skills/
       search-youtube-reddit/
         SKILL.md
-  content/
-    raw/
-      youtube/
-        JosephCarlsonShow/
-          2025-12/
-            2025-12-01-Top-Five-AI-Stocks-Im-Buying-Now.md
-      reddit/
-        investing/
-          2025-12/
-            2025-12-03-Tesla-reports-418227-deliveries-for-the-fourth-quarter-down-16.md
-    processed/
-      youtube/
-        JosephCarlsonShow/
-          2025-12/
-            2025-12-01-Top-Five-AI-Stocks-Im-Buying-Now.md
-      reddit/
-        investing/
-          2025-12/
-            2025-12-03-Tesla-reports-418227-deliveries-for-the-fourth-quarter-down-16.md
+  raw/
+    youtube/
+      JosephCarlsonShow/
+        2025-12/
+          2025-12-01-Top-Five-AI-Stocks-Im-Buying-Now.md
+    reddit/
+      investing/
+        2025-12/
+          2025-12-03-Tesla-reports-418227-deliveries-for-the-fourth-quarter-down-16.md
+  processed/
+    youtube/
+      JosephCarlsonShow/
+        2025-12/
+          2025-12-01-Top-Five-AI-Stocks-Im-Buying-Now.md
+    reddit/
+      investing/
+        2025-12/
+          2025-12-03-Tesla-reports-418227-deliveries-for-the-fourth-quarter-down-16.md
 ```
 
 If you chose Codex or OpenCode, the skill file will be written to:
@@ -345,7 +348,7 @@ Greptor provides optional hooks to monitor the ingestion and processing pipeline
 
 ```typescript
 const greptor = await createGreptor({
-  baseDir: './projects/investing',
+  basePath: './projects/investing/content',
   topic: 'Investing, stock market, financial, and macroeconomics',
   model: {
     provider: "@ai-sdk/openai",
@@ -419,7 +422,7 @@ Here's a comprehensive example for investment research:
 
 ```typescript
 const greptor = await createGreptor({
-  baseDir: './projects/investing',
+  basePath: './projects/investing/content',
   topic: 'Investing, stock market, financial, and macroeconomics',
   model: {
     provider: "@ai-sdk/openai",

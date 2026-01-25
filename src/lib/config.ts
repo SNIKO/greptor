@@ -1,10 +1,8 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import YAML from "yaml";
 import { z } from "zod";
 import { fileExists } from "./utils/file.js";
-
-export const CONFIG_FILENAME = "config.yaml";
 
 export const TagFieldSchema = z.object({
 	name: z.string().describe("Tag field name in snake_case"),
@@ -36,7 +34,7 @@ export interface GreptorConfig {
 }
 
 export function getConfigPath(baseDir: string): string {
-	return path.join(baseDir, ".greptor", CONFIG_FILENAME);
+	return path.join(baseDir, ".greptor", "config.yaml");
 }
 
 export async function writeConfig(
@@ -49,12 +47,47 @@ export async function writeConfig(
 }
 
 export async function readConfig(
-	baseDir: string,
+	configPathOrBaseDir: string,
 ): Promise<GreptorConfig | null> {
-	const configPath = getConfigPath(baseDir);
+	const configPath = configPathOrBaseDir.endsWith(".yaml")
+		? configPathOrBaseDir
+		: getConfigPath(configPathOrBaseDir);
+
 	if (!(await fileExists(configPath))) {
 		return null;
 	}
 
 	return YAML.parse(await readFile(configPath, "utf8")) as GreptorConfig;
+}
+
+export async function findConfigFile(
+	baseDir: string,
+): Promise<string | undefined> {
+	const queue = [baseDir];
+	const visited = new Set<string>();
+
+	while (queue.length > 0) {
+		const current = queue.shift();
+		if (!current || visited.has(current)) {
+			continue;
+		}
+
+		visited.add(current);
+
+		try {
+			const entries = await readdir(current, { withFileTypes: true });
+			for (const entry of entries) {
+				const fullPath = path.join(current, entry.name);
+				if (entry.isDirectory()) {
+					if (entry.name === ".greptor") {
+						const configFilePath = path.join(fullPath, "config.yaml");
+						return configFilePath;
+					}
+					queue.push(fullPath);
+				}
+			}
+		} catch {}
+	}
+
+	return undefined;
 }

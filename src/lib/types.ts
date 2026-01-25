@@ -85,7 +85,7 @@ export interface ModelConfig {
 }
 
 export interface GreptorOptions {
-	baseDir: string;
+	basePath: string;
 	topic: string;
 	model: ModelConfig;
 	workers?: number;
