@@ -1,8 +1,5 @@
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { LanguageModel } from "ai";
 import type { ModelConfig } from "../types.js";
-
-createOpenAICompatible();
 
 const PROVIDER_EXPORTS: Record<string, string> = {
 	"@ai-sdk/amazon-bedrock": "createAmazonBedrock",

@@ -1,5 +1,5 @@
 import { buildRouteMap } from "@stricli/core";
-import { skillsCommand } from "./skills.js";
+import { skillsCommand } from "./skills/command.js";
 import { tagsCommand } from "./tags.js";
 
 export const generateRoutes = buildRouteMap({

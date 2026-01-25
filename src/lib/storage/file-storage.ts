@@ -9,6 +9,9 @@ import type {
 import type { GreptorEatInput, Tags } from "../types.js";
 import { fileExists } from "../utils/file.js";
 
+export const RAW_DIR_NAME = "raw";
+export const PROCESSED_DIR_NAME = "processed";
+
 export interface FileStorage {
 	readonly baseDir: string;
 	readonly rawContentPath: string;
@@ -21,8 +24,8 @@ export interface FileStorage {
 }
 
 export function createFileStorage(baseDir: string): FileStorage {
-	const rawContentPath = path.join(baseDir, "raw");
-	const processedContentPath = path.join(baseDir, "processed");
+	const rawContentPath = path.join(baseDir, RAW_DIR_NAME);
+	const processedContentPath = path.join(baseDir, PROCESSED_DIR_NAME);
 
 	function resolveLayerPath(
 		layer: "raw" | "processed",

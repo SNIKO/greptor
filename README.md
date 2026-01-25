@@ -125,13 +125,17 @@ await greptor.eat({
 
 Greptor will write your input to a raw Markdown file immediately, then run background enrichment (LLM cleaning + chunking + tagging) and write a processed Markdown file. You can grep the raw files right away, and the processed files will appear shortly after.
 
-### Step 5: Generate a Claude Code Skill
+### Step 5: Generate a Skill (CLI)
 
-```typescript
-await greptor.createSkill(['youtube', 'reddit']);
+Navigate to your workspace directory and run:
+
+```bash
+greptor generate skills
 ```
 
-This generates a Claude Code skill that instructs agents on how to search your indexed content effectively.
+The CLI will prompt you to pick an agent type (`claude code`, `codex`, or `opencode`) 
+
+Then it writes the appropriate skill file for your chosen agent.
 
 The skill is customized for the sources you provide and includes search tips based on the tag schema. You can always customize it manually further for better results.
 
@@ -166,9 +170,12 @@ By this point, you should have the following structure in your `baseDir`:
             2025-12-03-Tesla-reports-418227-deliveries-for-the-fourth-quarter-down-16.md
 ```
 
-Now run Claude Code (or any other agent) in this folder and ask questions about your data or perform research tasks!
+If you chose Codex or OpenCode, the skill file will be written to:
 
-**Note**: For other agents, you may need to adapt the skill accordingly.
+- `.codex/skills/search-*.md` (Codex)
+- `.opencode/skills/search-*.md` (OpenCode)
+
+Now run your chosen agent in this folder and ask questions about your data or perform research tasks!
 
 **For better results**:
 1. Connect MCP servers like Yahoo Finance or other relevant financial/stock market MCP servers for up-to-date information.
