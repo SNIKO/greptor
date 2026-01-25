@@ -91,6 +91,7 @@ export interface GreptorOptions {
 	workers?: number;
 	tagSchema: TagSchema;
 	hooks?: GreptorHooks;
+	customProcessingPrompts?: Record<string, string>;
 }
 
 export type SupportedFormat = "text";

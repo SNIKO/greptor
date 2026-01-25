@@ -31,6 +31,7 @@ export type TagSchema = TagSchemaItem[];
 export interface GreptorConfig {
 	domain: string;
 	tagSchema: TagSchema;
+	customProcessingPrompts?: Record<string, string>;
 }
 
 export function getConfigPath(baseDir: string): string {
