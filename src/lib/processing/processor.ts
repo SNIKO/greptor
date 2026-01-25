@@ -78,8 +78,8 @@ Optimize for **single-pass grep scanning**: a single grep hit should reveal what
 
 ## 01 Short descriptive title for chunk 1
 field_1=value_1,value_4
-field_2=value_2,
-field_3=value_3,
+field_2=value_2
+field_3=value_3
 <cleaned, condensed content>
 
 ## 02 Short descriptive title for chunk 2
@@ -96,21 +96,21 @@ field_5=value_5,value_6
 - DO NOT duplicate fields. For arrays, use comma-separated values.
 - For enums, use only allowed enum values from the schema.
 - Use ISO-8601 for dates (YYYY-MM-DD).
-- Keep tag values grep-friendly:
-	- snake_case where appropriate
-	- tickers, codes, and symbols in UPPERCASE
-- Maintain a tag order as per schema.
+- Keep tag values grep-friendly: snake_case where appropriate, tickers/codes/symbols in UPPERCASE.
+- Maintain tag order as per schema.
 
 ## Content Rules
 - Output MUST be plain text or Markdown with simple formatting (headings, lists, bold/italic).
 - Rewrite content to be token-efficient and grep-efficient without altering meaning.
-- Content MUST be split into short paragraphs separated by blank lines.
+- Split content into short paragraphs separated by blank lines.
 - Each paragraph MUST be 1-3 sentences.
 - Each sentence MUST be declarative and information-dense.
 - Keep entities, tickers, and terms explicit; avoid pronouns.
-- Normalize numbers (e.g. "1,000,000.00", "24%").
+- Normalize numbers (e.g., "1,000,000.00", "24%").
 - Preserve uncertainty, ranges, and conditional statements exactly.
 - Do not add interpretation, synthesis, or analysis.
+- Preserve emotional tone and intent where relevant.
+- Use scores and reaction metrics (likes, dislikes, upvotes, downvotes) to infer which posts or comments carry higher importance, agreement, disagreement, or emotional weight. Incorporate these signals when summarizing content and when determining how to break it into semantic chunks.
 
 # TAG SCHEMA:
 ${tagSchema}

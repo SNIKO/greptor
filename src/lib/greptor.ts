@@ -1,5 +1,4 @@
 import type {
-	CreateSkillResult,
 	GreptorEatInput,
 	GreptorEatResult,
 	GreptorOptions,
@@ -7,22 +6,18 @@ import type {
 
 import path from "node:path";
 import YAML from "yaml";
+import { writeConfig } from "./config.js";
 import { resolveModel } from "./llm/llm-factory.js";
 import {
 	createProcessingQueue,
 	enqueueUnprocessedDocuments,
 	startBackgroundWorkers,
 } from "./processing/processor.js";
-import { generateSkill } from "./skills/skill-generator.js";
 import { createFileStorage } from "./storage/file-storage.js";
 import { initializeTagSchema } from "./tag-schema/initialize.js";
 
 export interface Greptor {
 	eat: (input: GreptorEatInput) => Promise<GreptorEatResult>;
-	createSkill: (
-		sources: string[],
-		overwrite: boolean,
-	) => Promise<CreateSkillResult>;
 }
 
 export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
@@ -37,6 +32,11 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		options.topic,
 		options.tagSchema,
 	);
+
+	await writeConfig(baseDir, {
+		domain: options.topic,
+		tagSchema,
+	});
 
 	const queue = createProcessingQueue();
 	const queuedCount = await enqueueUnprocessedDocuments({
@@ -103,42 +103,7 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		};
 	}
 
-	async function createSkill(
-		sources: string[],
-		overwrite = false,
-	): Promise<CreateSkillResult> {
-		try {
-			const { skillPath } = await generateSkill(
-				{
-					domain: options.topic,
-					sources,
-					baseDir: options.baseDir,
-					tagSchema,
-					overwrite,
-				},
-				storage,
-			);
-
-			return {
-				success: true,
-				message: `Skill created at ${skillPath}`,
-				skillPath,
-			};
-		} catch (error) {
-			const errorMessage =
-				error instanceof Error ? error.message : String(error);
-			hooks?.onError?.({
-				error: error instanceof Error ? error : new Error(errorMessage),
-			});
-			return {
-				success: false,
-				message: errorMessage,
-			};
-		}
-	}
-
 	return {
 		eat,
-		createSkill,
 	};
 }
