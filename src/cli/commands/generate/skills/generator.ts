@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { TagSchemaItem } from "../../../../lib/types.js";
+import type { TagSchemaItem } from "../../../../lib/config.js";
 import {
 	type SkillTemplateField,
 	renderSkillTemplate,

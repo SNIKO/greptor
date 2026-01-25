@@ -14,7 +14,6 @@ import {
 	startBackgroundWorkers,
 } from "./processing/processor.js";
 import { createFileStorage } from "./storage/file-storage.js";
-import { initializeTagSchema } from "./tag-schema/initialize.js";
 
 export interface Greptor {
 	eat: (input: GreptorEatInput) => Promise<GreptorEatResult>;
@@ -26,16 +25,15 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 	const contentPath = path.join(baseDir, "content");
 	const storage = createFileStorage(contentPath);
 
-	const tagSchema = await initializeTagSchema(
-		storage.baseDir,
-		model,
-		options.topic,
-		options.tagSchema,
-	);
+	if (!options.tagSchema || options.tagSchema.length === 0) {
+		throw new Error(
+			"Missing tag schema. Provide `tagSchema` in options. Generate one with `greptor generate tags`",
+		);
+	}
 
 	await writeConfig(baseDir, {
 		domain: options.topic,
-		tagSchema,
+		tagSchema: options.tagSchema,
 	});
 
 	const queue = createProcessingQueue();
@@ -46,7 +44,7 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 
 	const ctx = {
 		domain: options.topic,
-		tagSchema: YAML.stringify(tagSchema),
+		tagSchema: YAML.stringify(options.tagSchema),
 		model,
 		storage,
 		hooks,
