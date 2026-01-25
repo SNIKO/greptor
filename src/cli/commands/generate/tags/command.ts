@@ -36,12 +36,11 @@ async function findGreptorConfigPath(
 			for (const entry of entries) {
 				const fullPath = path.join(current, entry.name);
 				if (entry.isDirectory()) {
+					if (entry.name === ".greptor") {
+						const configFilePath = path.join(fullPath, CONFIG_FILENAME);
+						return configFilePath;
+					}
 					queue.push(fullPath);
-					continue;
-				}
-
-				if (entry.isFile() && entry.name === CONFIG_FILENAME) {
-					return fullPath;
 				}
 			}
 		} catch {}

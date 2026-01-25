@@ -52,12 +52,10 @@ async function findGreptorPaths(workspacePath: string): Promise<GreptorPaths> {
 						rawPath = fullPath;
 					} else if (entry.name === PROCESSED_DIR_NAME && !processedPath) {
 						processedPath = fullPath;
+					} else if (entry.name === ".greptor" && !configPath) {
+						configPath = path.join(fullPath, CONFIG_FILENAME);
 					} else {
 						queue.push(fullPath);
-					}
-				} else if (entry.isFile()) {
-					if (entry.name === CONFIG_FILENAME) {
-						configPath = path.join(current, entry.name);
 					}
 				}
 			}
