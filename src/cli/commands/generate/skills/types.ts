@@ -1,4 +1,4 @@
-import type { TagSchema } from "../../../../lib/types.js";
+import type { TagSchema } from "../../../../lib/config.js";
 
 export type AgentType = "claude-code" | "codex" | "opencode";
 

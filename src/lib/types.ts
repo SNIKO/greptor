@@ -1,29 +1,5 @@
-import { z } from "zod";
+import type { TagSchema } from "./config.js";
 import type { DocumentRef } from "./storage/types.js";
-
-export const TagFieldSchema = z.object({
-	name: z.string().describe("Tag field name in snake_case"),
-	type: z
-		.enum([
-			"string",
-			"string[]",
-			"number",
-			"number[]",
-			"boolean",
-			"enum",
-			"enum[]",
-			"date",
-		])
-		.describe("Field data type"),
-	description: z.string().describe("Purpose and usage of this tag field"),
-	enumValues: z
-		.array(z.string())
-		.nullable()
-		.describe("Full list of enum values for enum types."),
-});
-
-export type TagSchemaItem = z.infer<typeof TagFieldSchema>;
-export type TagSchema = TagSchemaItem[];
 
 /** Event data for when a processing run starts */
 export interface ProcessingRunStartedEvent {
@@ -113,7 +89,7 @@ export interface GreptorOptions {
 	topic: string;
 	model: ModelConfig;
 	workers?: number;
-	tagSchema?: TagSchema;
+	tagSchema: TagSchema;
 	hooks?: GreptorHooks;
 }
 
