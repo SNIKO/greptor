@@ -4,7 +4,7 @@ import YAML from "yaml";
 import { z } from "zod";
 import { fileExists } from "./utils/file.js";
 
-export const CONFIG_FILENAME = "greptor-config.yaml";
+export const CONFIG_FILENAME = "config.yaml";
 
 export const TagFieldSchema = z.object({
 	name: z.string().describe("Tag field name in snake_case"),
@@ -36,7 +36,7 @@ export interface GreptorConfig {
 }
 
 export function getConfigPath(baseDir: string): string {
-	return path.join(baseDir, CONFIG_FILENAME);
+	return path.join(baseDir, ".greptor", CONFIG_FILENAME);
 }
 
 export async function writeConfig(
