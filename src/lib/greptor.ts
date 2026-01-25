@@ -30,10 +30,14 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		);
 	}
 
-	await writeConfig(basePath, {
+	const configData = {
 		domain: options.topic,
 		tagSchema: options.tagSchema,
-	});
+		...(options.customProcessingPrompts && {
+			customProcessingPrompts: options.customProcessingPrompts,
+		}),
+	};
+	await writeConfig(basePath, configData);
 
 	const queue = createProcessingQueue();
 	const queuedCount = await enqueueUnprocessedDocuments({
@@ -44,6 +48,9 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 	const ctx = {
 		domain: options.topic,
 		tagSchema: YAML.stringify(options.tagSchema),
+		...(options.customProcessingPrompts && {
+			customProcessingPrompts: options.customProcessingPrompts,
+		}),
 		model,
 		storage,
 		hooks,

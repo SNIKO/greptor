@@ -8,6 +8,7 @@ const DEFAULT_IDLE_SLEEP_MS = 750;
 export interface ProcessorContext {
 	domain: string;
 	tagSchema: string;
+	customProcessingPrompts?: Record<string, string>;
 	model: LanguageModel;
 	storage: FileStorage;
 	hooks?: GreptorHooks | undefined;
@@ -60,7 +61,12 @@ function createProcessingPrompt(
 	rawContent: string,
 	domain: string,
 	tagSchema: string,
+	customProcessingPrompt?: string,
 ): string {
+	if (customProcessingPrompt) {
+		return customProcessingPrompt.replaceAll("{CONTENT}", rawContent);
+	}
+
 	return `
 # INSTRUCTIONS
 Clean, chunk, and tag the raw content for **grep-based search** in the domain: ${domain}.
@@ -124,12 +130,23 @@ async function processDocument(
 	ref: DocumentRef,
 	ctx: ProcessorContext,
 	raw?: { tags: Tags; content: string },
+	source?: string,
 ): Promise<LanguageModelUsage> {
 	// 1. Read raw content
 	const { tags, content } = raw ?? (await ctx.storage.readRawContent(ref));
 
-	// 2. Clean + chunk + tag with a single LLM call
-	const prompt = createProcessingPrompt(content, ctx.domain, ctx.tagSchema);
+	// 2. Resolve custom prompt using explicit source
+	const customPrompt = source
+		? ctx.customProcessingPrompts?.[source]
+		: undefined;
+
+	// 3. Clean + chunk + tag with a single LLM call
+	const prompt = createProcessingPrompt(
+		content,
+		ctx.domain,
+		ctx.tagSchema,
+		customPrompt,
+	);
 
 	const { text, usage } = await generateText({
 		model: ctx.model,
@@ -289,7 +306,7 @@ export function startBackgroundWorkers(args: {
 				if (readError) {
 					throw readError;
 				}
-				usage = await processDocument(docRef, ctx, raw);
+				usage = await processDocument(docRef, ctx, raw, source);
 				runSuccessCount++;
 				success = true;
 			} catch (error) {

@@ -342,6 +342,64 @@ rg -n -C 6 "narrative=ev_transition" content/processed/ | rg "sentiment=bearish"
 
 ## Configuration
 
+### Custom Processing Prompts
+
+You can override the default processing prompt for specific sources to tailor how content is processed:
+
+```typescript
+const greptor = await createGreptor({
+  basePath: './projects/investing/content',
+  topic: 'Investing, stock market, financial, and macroeconomics',
+  model: {
+    provider: "@ai-sdk/openai",
+    model: "gpt-5-mini",
+  },
+  customProcessingPrompts: {
+    // Custom prompt for Twitter/X content
+    'twitter': `
+# INSTRUCTIONS
+Process this Twitter/X content for investment research. Focus on:
+- Investment signals, predictions, or analysis
+- Key metrics and numbers mentioned
+- Influencer sentiment and conviction level
+
+# CONTENT TO PROCESS:
+{CONTENT}
+    `,
+    
+    // Custom prompt for SEC filings
+    'sec_filing': `
+# INSTRUCTIONS
+Process this SEC filing with extreme precision:
+- Preserve all financial figures, dates, and legal language exactly
+- Extract key financial metrics and risk factors
+- Maintain formal, factual tone throughout
+
+# CONTENT TO PROCESS:
+{CONTENT}
+    `,
+    
+    // Custom prompt for earnings transcripts
+    'earnings': `
+# INSTRUCTIONS
+Process this earnings call transcript:
+- Extract forward-looking statements and guidance
+- Preserve exact numbers, percentages, and ranges
+- Capture management sentiment and key Q&A points
+
+# CONTENT TO PROCESS:
+{CONTENT}
+    `,
+  },
+});
+```
+
+**Usage notes**:
+- Use `{CONTENT}` as a placeholder where the raw content will be inserted
+- Each custom prompt should include the placeholder exactly once
+- If no custom prompt is defined for a source, Greptor falls back to the default processing prompt
+- Custom prompts are matched against the document's `source` field (e.g., `youtube`, `reddit`, `twitter`)
+
 ### Event Hooks
 
 Greptor provides optional hooks to monitor the ingestion and processing pipeline. These are useful for logging, metrics, progress tracking, or building custom UIs.
