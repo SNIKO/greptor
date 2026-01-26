@@ -2,14 +2,15 @@ import type {
 	GreptorEatInput,
 	GreptorEatResult,
 	GreptorOptions,
+	SourceCounts,
 } from "./types.js";
 
-import path from "node:path";
 import YAML from "yaml";
 import { writeConfig } from "./config.js";
 import { resolveModel } from "./llm/llm-factory.js";
 import {
 	createProcessingQueue,
+	enqueue,
 	enqueueUnprocessedDocuments,
 	startBackgroundWorkers,
 } from "./processing/processor.js";
@@ -17,6 +18,7 @@ import { createFileStorage } from "./storage/file-storage.js";
 
 export interface Greptor {
 	eat: (input: GreptorEatInput) => Promise<GreptorEatResult>;
+	getDocumentCounts: () => Promise<SourceCounts>;
 }
 
 export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
@@ -53,21 +55,13 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		}),
 		model,
 		storage,
-		hooks,
+		...(hooks ? { hooks } : {}),
 	};
 
 	startBackgroundWorkers({ ctx, queue, concurrency: options.workers ?? 1 });
 
 	async function eat(input: GreptorEatInput): Promise<GreptorEatResult> {
 		if (input.format !== "text") {
-			hooks?.onError?.({
-				error: new Error(`Unsupported format: ${input.format}`),
-				context: {
-					source: input.source,
-					publisher: input.publisher,
-					label: input.label,
-				},
-			});
 			return {
 				success: false,
 				message: `Unsupported format: ${input.format}`,
@@ -84,21 +78,13 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		}
 
 		if (res.type === "error") {
-			hooks?.onError?.({
-				error: new Error(res.message),
-				context: {
-					source: input.source,
-					publisher: input.publisher,
-					label: input.label,
-				},
-			});
 			return {
 				success: false,
 				message: res.message,
 			};
 		}
 
-		queue.enqueue(res.ref);
+		enqueue(queue, res.ref);
 
 		return {
 			success: true,
@@ -109,5 +95,6 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 
 	return {
 		eat,
+		getDocumentCounts: () => storage.getDocumentCounts(),
 	};
 }

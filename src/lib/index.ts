@@ -1,11 +1,8 @@
 export * from "./types.js";
 export type {
 	GreptorHooks,
-	ProcessingRunStartedEvent,
-	ProcessingRunCompletedEvent,
 	DocumentProcessingStartedEvent,
 	DocumentProcessingCompletedEvent,
-	ErrorEvent,
 } from "./types.js";
 
 export * from "./config.js";

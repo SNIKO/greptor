@@ -6,7 +6,7 @@ import type {
 	DocumentRef,
 	DocumentAddResult as DocumentSaveResult,
 } from "../storage/types.js";
-import type { GreptorEatInput, Tags } from "../types.js";
+import type { GreptorEatInput, SourceCounts, Tags } from "../types.js";
 import { fileExists } from "../utils/file.js";
 
 export const RAW_DIR_NAME = "raw";
@@ -21,11 +21,15 @@ export interface FileStorage {
 	readRawContent(ref: DocumentRef): Promise<{ tags: Tags; content: string }>;
 	getUnprocessedContents(): Promise<DocumentRef[]>;
 	saveProcessedContent(ref: DocumentRef, content: string): Promise<void>;
+	getDocumentCounts(): Promise<SourceCounts>;
 }
 
 export function createFileStorage(baseDir: string): FileStorage {
 	const rawContentPath = path.join(baseDir, RAW_DIR_NAME);
 	const processedContentPath = path.join(baseDir, PROCESSED_DIR_NAME);
+
+	const sourceCounts: SourceCounts = {};
+	let countsInitialized = false;
 
 	function resolveLayerPath(
 		layer: "raw" | "processed",
@@ -86,6 +90,33 @@ export function createFileStorage(baseDir: string): FileStorage {
 			yearMonth,
 			fileName,
 		);
+	}
+
+	function getSourceNameFromRef(ref: DocumentRef): string {
+		return ref.split("/")[0] ?? "unknown";
+	}
+
+	async function initializeSourceCounts(): Promise<void> {
+		const rawRefs = await listLayerRefs("raw");
+		const processedRefs = await listLayerRefs("processed");
+
+		for (const ref of rawRefs) {
+			const source = getSourceNameFromRef(ref);
+			if (!sourceCounts[source]) {
+				sourceCounts[source] = { fetched: 0, processed: 0 };
+			}
+			sourceCounts[source].fetched++;
+		}
+
+		for (const ref of processedRefs) {
+			const source = getSourceNameFromRef(ref);
+			if (!sourceCounts[source]) {
+				sourceCounts[source] = { fetched: 0, processed: 0 };
+			}
+			sourceCounts[source].processed++;
+		}
+
+		countsInitialized = true;
 	}
 
 	function buildRawFileContent(input: GreptorEatInput): string {
@@ -172,6 +203,13 @@ export function createFileStorage(baseDir: string): FileStorage {
 			}
 
 			await writeFile(fullPath, content, "utf8");
+
+			const source = getSourceNameFromRef(ref);
+			if (!sourceCounts[source]) {
+				sourceCounts[source] = { fetched: 0, processed: 0 };
+			}
+			sourceCounts[source].fetched++;
+
 			return {
 				type: "added",
 				ref,
@@ -237,6 +275,12 @@ export function createFileStorage(baseDir: string): FileStorage {
 		const processedFullPath = resolveLayerPath("processed", ref);
 		await mkdir(path.dirname(processedFullPath), { recursive: true });
 		await writeFile(processedFullPath, content, "utf8");
+
+		const source = getSourceNameFromRef(ref);
+		if (!sourceCounts[source]) {
+			sourceCounts[source] = { fetched: 0, processed: 0 };
+		}
+		sourceCounts[source].processed++;
 	}
 
 	return {
@@ -247,5 +291,11 @@ export function createFileStorage(baseDir: string): FileStorage {
 		readRawContent,
 		getUnprocessedContents,
 		saveProcessedContent,
+		getDocumentCounts: async (): Promise<SourceCounts> => {
+			if (!countsInitialized) {
+				await initializeSourceCounts();
+			}
+			return sourceCounts;
+		},
 	};
 }
