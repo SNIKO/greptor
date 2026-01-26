@@ -4,7 +4,6 @@ import type {
 	GreptorOptions,
 } from "./types.js";
 
-import path from "node:path";
 import YAML from "yaml";
 import { writeConfig } from "./config.js";
 import { resolveModel } from "./llm/llm-factory.js";

@@ -82,6 +82,7 @@ Optimize for **single-pass grep scanning**: a single grep hit should reveal what
 
 ## Output Format (Markdown only)
 
+\`\`\`markdown
 ## 01 Short descriptive title for chunk 1
 field_1=value_1,value_4
 field_2=value_2
@@ -93,6 +94,7 @@ field_1=value_1
 field_4=value_4
 field_5=value_5,value_6
 <cleaned, condensed content>
+\`\`\`
 
 ## Tagging Rules
 - Use ONLY fields defined in the SCHEMA (field names must exactly match schema).
@@ -217,13 +219,6 @@ export function startBackgroundWorkers(args: {
 	let runFailureCount = 0;
 	let runInFlightCount = 0;
 
-	function getQueueTotals() {
-		const processed = runActive ? runSuccessCount + runFailureCount : 0;
-		const pending = queue.size();
-		const total = processed + pending + runInFlightCount;
-		return { processed, pending, total };
-	}
-
 	function startRun(totalDocs: number): void {
 		runActive = true;
 		runStartTime = Date.now();
@@ -256,7 +251,7 @@ export function startBackgroundWorkers(args: {
 
 	async function workerLoop(): Promise<void> {
 		while (true) {
-			const { total } = getQueueTotals();
+			const total = queue.size();
 
 			// Start a new run if there are items and no run is active
 			if (total > 0 && !runActive) {
@@ -288,7 +283,6 @@ export function startBackgroundWorkers(args: {
 			);
 
 			const docStartTime = Date.now();
-			const { total: startTotal } = getQueueTotals();
 
 			ctx.hooks?.onDocumentProcessingStarted?.({
 				source,
@@ -296,7 +290,7 @@ export function startBackgroundWorkers(args: {
 				label,
 				successful: runSuccessCount,
 				failed: runFailureCount,
-				queueSize: startTotal,
+				queueSize: queue.size(),
 			});
 
 			let usage: LanguageModelUsage | undefined;
@@ -319,7 +313,6 @@ export function startBackgroundWorkers(args: {
 				runInFlightCount--;
 			}
 
-			const { total: endTotal } = getQueueTotals();
 			ctx.hooks?.onDocumentProcessingCompleted?.({
 				success,
 				source,
@@ -327,7 +320,7 @@ export function startBackgroundWorkers(args: {
 				label,
 				successful: runSuccessCount,
 				failed: runFailureCount,
-				queueSize: endTotal,
+				queueSize: queue.size(),
 				elapsedMs: Date.now() - docStartTime,
 				inputTokens: usage?.inputTokens ?? 0,
 				outputTokens: usage?.outputTokens ?? 0,
