@@ -1,64 +1,45 @@
 import type { TagSchema } from "./config.js";
 import type { DocumentRef } from "./storage/types.js";
 
-/** Event data for when a processing run starts */
-export interface ProcessingRunStartedEvent {
-	documentsToProcess: number;
-	totalDocuments: number;
-}
-
-/** Event data for when a processing run completes */
-export interface ProcessingRunCompletedEvent {
-	successful: number;
-	failed: number;
-	elapsedMs: number;
-}
+type SourceName = string;
+type SourceCountEntry = { fetched: number; processed: number };
+export type SourceCounts = Record<SourceName, SourceCountEntry>;
 
 /** Event data for when document processing starts */
 export interface DocumentProcessingStartedEvent {
-	source: string;
+	source: SourceName;
 	publisher?: string | undefined;
 	label: string;
-	successful: number;
-	failed: number;
-	queueSize: number;
+	documentsCount: SourceCounts;
 }
 
 /** Event data for when document processing completes */
-export interface DocumentProcessingCompletedEvent {
-	success: boolean;
-	source: string;
-	publisher?: string | undefined;
-	label: string;
-	successful: number;
-	failed: number;
-	queueSize: number;
-	elapsedMs: number;
-	inputTokens: number;
-	outputTokens: number;
-	totalTokens: number;
-}
-
-/** Event data for errors */
-export interface ErrorEvent {
-	error: Error;
-	context?: {
-		source?: string | undefined;
-		publisher?: string | undefined;
-		label?: string | undefined;
-		ref?: DocumentRef | undefined;
-	};
-}
+export type DocumentProcessingCompletedEvent =
+	| {
+			success: true;
+			source: SourceName;
+			publisher?: string | undefined;
+			label: string;
+			documentsCount: SourceCounts;
+			elapsedMs: number;
+			inputTokens: number;
+			outputTokens: number;
+			totalTokens: number;
+	  }
+	| {
+			success: false;
+			error: string;
+			source: SourceName;
+			publisher?: string | undefined;
+			label: string;
+	  };
 
 /** Optional hooks for Greptor events */
 export interface GreptorHooks {
-	onProcessingRunStarted?: (event: ProcessingRunStartedEvent) => void;
-	onProcessingRunCompleted?: (event: ProcessingRunCompletedEvent) => void;
 	onDocumentProcessingStarted?: (event: DocumentProcessingStartedEvent) => void;
 	onDocumentProcessingCompleted?: (
 		event: DocumentProcessingCompletedEvent,
 	) => void;
-	onError?: (event: ErrorEvent) => void;
 }
 
 export interface ModelConfig {

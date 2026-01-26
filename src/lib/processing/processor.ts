@@ -11,31 +11,35 @@ export interface ProcessorContext {
 	customProcessingPrompts?: Record<string, string>;
 	model: LanguageModel;
 	storage: FileStorage;
-	hooks?: GreptorHooks | undefined;
+	hooks?: GreptorHooks;
 }
 
-export interface ProcessingQueue {
-	enqueue: (ref: DocumentRef) => void;
-	dequeue: () => DocumentRef | undefined;
-	size: () => number;
-}
+export type ProcessingQueue = DocumentRef[];
 
 export function createProcessingQueue(): ProcessingQueue {
-	const items: DocumentRef[] = [];
+	return [];
+}
 
-	return {
-		enqueue(ref) {
-			items.push(ref);
-		},
+export function enqueue(queue: ProcessingQueue, ref: DocumentRef): void {
+	queue.push(ref);
+}
 
-		size() {
-			return items.length;
-		},
+export function dequeue(queue: ProcessingQueue): DocumentRef | undefined {
+	return queue.shift();
+}
 
-		dequeue() {
-			return items.shift();
-		},
-	};
+export function queueSize(queue: ProcessingQueue): number {
+	return queue.length;
+}
+
+function asNonEmptyString(value: unknown): string | undefined {
+	if (typeof value !== "string") return undefined;
+	const trimmed = value.trim();
+	return trimmed ? trimmed : undefined;
+}
+
+function toError(error: unknown): Error {
+	return error instanceof Error ? error : new Error(String(error));
 }
 
 function renderProcessedDocument(tags: Tags, chunkContent: string): string {
@@ -57,19 +61,8 @@ function renderProcessedDocument(tags: Tags, chunkContent: string): string {
 	);
 }
 
-function createProcessingPrompt(
-	rawContent: string,
-	domain: string,
-	tagSchema: string,
-	customProcessingPrompt?: string,
-): string {
-	if (customProcessingPrompt) {
-		return customProcessingPrompt.replaceAll("{CONTENT}", rawContent);
-	}
-
-	return `
-# INSTRUCTIONS
-Clean, chunk, and tag the raw content for **grep-based search** in the domain: ${domain}.
+const PROCESSING_TEMPLATE = `# INSTRUCTIONS
+Clean, chunk, and tag the raw content for **grep-based search** in the domain: {DOMAIN}.
 
 ## Core Principle
 Optimize for **single-pass grep scanning**: a single grep hit should reveal what a chunk is about without reading other chunks.
@@ -121,11 +114,24 @@ field_5=value_5,value_6
 - Use scores and reaction metrics (likes, dislikes, upvotes, downvotes) to infer which posts or comments carry higher importance, agreement, disagreement, or emotional weight. Incorporate these signals when summarizing content and when determining how to break it into semantic chunks.
 
 # TAG SCHEMA:
-${tagSchema}
+{TAG_SCHEMA}
 
 # RAW CONTENT:
-${rawContent}
-`;
+{CONTENT}`;
+
+function createProcessingPrompt(
+	rawContent: string,
+	domain: string,
+	tagSchema: string,
+	customProcessingPrompt?: string,
+): string {
+	if (customProcessingPrompt) {
+		return customProcessingPrompt.replaceAll("{CONTENT}", rawContent);
+	}
+
+	return PROCESSING_TEMPLATE.replaceAll("{DOMAIN}", domain)
+		.replaceAll("{TAG_SCHEMA}", tagSchema)
+		.replaceAll("{CONTENT}", rawContent);
 }
 
 async function processDocument(
@@ -134,15 +140,12 @@ async function processDocument(
 	raw?: { tags: Tags; content: string },
 	source?: string,
 ): Promise<LanguageModelUsage> {
-	// 1. Read raw content
 	const { tags, content } = raw ?? (await ctx.storage.readRawContent(ref));
 
-	// 2. Resolve custom prompt using explicit source
 	const customPrompt = source
 		? ctx.customProcessingPrompts?.[source]
 		: undefined;
 
-	// 3. Clean + chunk + tag with a single LLM call
 	const prompt = createProcessingPrompt(
 		content,
 		ctx.domain,
@@ -159,10 +162,8 @@ async function processDocument(
 		throw new Error("Failed to process content: empty LLM response");
 	}
 
-	// 3. Render final content with document-level YAML only
 	const rendered = renderProcessedDocument(tags, text);
 
-	// 4. Save processed content
 	await ctx.storage.saveProcessedContent(ref, rendered);
 	return usage;
 }
@@ -170,34 +171,25 @@ async function processDocument(
 function resolveDocumentMetadata(
 	ref: DocumentRef,
 	tags?: Tags,
-): { source: string; publisher?: string | undefined; label: string } {
-	const refParts = ref.split("/");
-	const filename = refParts[refParts.length - 1] ?? "";
-	let source = refParts[0] ?? "";
-	let publisher = refParts.length > 3 ? refParts[1] : undefined;
-	let label = filename.replace(/\.md$/, "");
+): { source: string; publisher?: string; label: string } {
+	const parts = ref.split("/");
+	const filename = parts.at(-1) ?? "";
+	const labelFromPath = filename.replace(/\.md$/, "");
+	const sourceFromPath = parts[0] ?? "unknown";
+	const publisherFromPath = parts.length > 3 ? parts[1] : undefined;
 
-	const tagSource = tags?.source;
-	const tagPublisher = tags?.publisher;
-	const tagTitle = tags?.title;
+	const publisher = asNonEmptyString(tags?.publisher) ?? publisherFromPath;
 
-	if (typeof tagSource === "string" && tagSource.trim()) {
-		source = tagSource;
-	}
-	if (typeof tagPublisher === "string" && tagPublisher.trim()) {
-		publisher = tagPublisher;
-	}
-	if (typeof tagTitle === "string" && tagTitle.trim()) {
-		label = tagTitle;
-	}
-
-	return { source, publisher, label };
+	return {
+		source: asNonEmptyString(tags?.source) ?? sourceFromPath,
+		label: asNonEmptyString(tags?.title) ?? labelFromPath,
+		...(publisher ? { publisher } : {}),
+	};
 }
 
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => {
 		const t = setTimeout(resolve, ms);
-		// If nothing else is keeping the process alive, don't block exit.
 		(t as unknown as { unref?: () => void }).unref?.();
 	});
 }
@@ -211,62 +203,23 @@ export function startBackgroundWorkers(args: {
 	const concurrency = Math.max(1, args.concurrency ?? 1);
 	const idleSleepMs = Math.max(50, args.idleSleepMs ?? DEFAULT_IDLE_SLEEP_MS);
 	const { ctx, queue } = args;
+	const hooks = ctx.hooks;
 
-	// Shared run state across workers
-	let runActive = false;
-	let runStartTime = 0;
-	let runSuccessCount = 0;
-	let runFailureCount = 0;
-	let runInFlightCount = 0;
-
-	function startRun(totalDocs: number): void {
-		runActive = true;
-		runStartTime = Date.now();
-		runSuccessCount = 0;
-		runFailureCount = 0;
-
-		ctx.hooks?.onProcessingRunStarted?.({
-			documentsToProcess: totalDocs,
-			totalDocuments: totalDocs,
-		});
-	}
-
-	function endRun(): void {
-		if (!runActive) return;
-		runActive = false;
-
-		ctx.hooks?.onProcessingRunCompleted?.({
-			successful: runSuccessCount,
-			failed: runFailureCount,
-			elapsedMs: Date.now() - runStartTime,
-		});
-	}
-
-	function tryEndRun(): void {
-		if (!runActive) return;
-		if (queue.size() === 0 && runInFlightCount === 0) {
-			endRun();
+	function safeHookCall(call: () => void): void {
+		try {
+			call();
+		} catch {
+			// Never let user hooks crash background workers.
 		}
 	}
 
 	async function workerLoop(): Promise<void> {
 		while (true) {
-			const total = queue.size();
-
-			// Start a new run if there are items and no run is active
-			if (total > 0 && !runActive) {
-				startRun(total);
-			}
-
-			const docRef = queue.dequeue();
+			const docRef = dequeue(queue);
 			if (!docRef) {
-				// Only end when no docs are in-flight across workers
-				tryEndRun();
 				await sleep(idleSleepMs);
 				continue;
 			}
-
-			runInFlightCount++;
 
 			let raw: { tags: Tags; content: string } | undefined;
 			let readError: Error | undefined;
@@ -274,7 +227,7 @@ export function startBackgroundWorkers(args: {
 			try {
 				raw = await ctx.storage.readRawContent(docRef);
 			} catch (error) {
-				readError = error instanceof Error ? error : new Error(String(error));
+				readError = toError(error);
 			}
 
 			const { source, publisher, label } = resolveDocumentMetadata(
@@ -284,55 +237,52 @@ export function startBackgroundWorkers(args: {
 
 			const docStartTime = Date.now();
 
-			ctx.hooks?.onDocumentProcessingStarted?.({
-				source,
-				publisher,
-				label,
-				successful: runSuccessCount,
-				failed: runFailureCount,
-				queueSize: queue.size(),
+			const documentsCount = await ctx.storage.getDocumentCounts();
+			safeHookCall(() => {
+				hooks?.onDocumentProcessingStarted?.({
+					source,
+					publisher,
+					label,
+					documentsCount,
+				});
 			});
-
-			let usage: LanguageModelUsage | undefined;
-			let success = false;
 
 			try {
 				if (readError) {
 					throw readError;
 				}
-				usage = await processDocument(docRef, ctx, raw, source);
-				runSuccessCount++;
-				success = true;
-			} catch (error) {
-				runFailureCount++;
-				ctx.hooks?.onError?.({
-					error: error instanceof Error ? error : new Error(String(error)),
-					context: { source, publisher, label, ref: docRef },
+
+				const usage = await processDocument(docRef, ctx, raw, source);
+				const completedDocumentsCount = await ctx.storage.getDocumentCounts();
+				safeHookCall(() => {
+					hooks?.onDocumentProcessingCompleted?.({
+						success: true,
+						source,
+						publisher,
+						label,
+						documentsCount: completedDocumentsCount,
+						elapsedMs: Date.now() - docStartTime,
+						inputTokens: usage?.inputTokens ?? 0,
+						outputTokens: usage?.outputTokens ?? 0,
+						totalTokens: usage?.totalTokens ?? 0,
+					});
 				});
-			} finally {
-				runInFlightCount--;
+			} catch (error) {
+				safeHookCall(() => {
+					hooks?.onDocumentProcessingCompleted?.({
+						success: false,
+						source,
+						publisher,
+						label,
+						error: toError(error).message,
+					});
+				});
 			}
-
-			ctx.hooks?.onDocumentProcessingCompleted?.({
-				success,
-				source,
-				publisher,
-				label,
-				successful: runSuccessCount,
-				failed: runFailureCount,
-				queueSize: queue.size(),
-				elapsedMs: Date.now() - docStartTime,
-				inputTokens: usage?.inputTokens ?? 0,
-				outputTokens: usage?.outputTokens ?? 0,
-				totalTokens: usage?.totalTokens ?? 0,
-			});
-
-			tryEndRun();
 		}
 	}
 
 	for (let i = 0; i < concurrency; i++) {
-		workerLoop();
+		void workerLoop();
 	}
 }
 
@@ -343,7 +293,7 @@ export async function enqueueUnprocessedDocuments(args: {
 	const refs = await args.storage.getUnprocessedContents();
 
 	for (const ref of refs) {
-		args.queue.enqueue(ref);
+		enqueue(args.queue, ref);
 	}
 
 	return refs.length;
