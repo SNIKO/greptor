@@ -24,7 +24,7 @@ export interface Greptor {
 export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 	const { basePath, hooks } = options;
 	const model = await resolveModel(options.model);
-	const storage = createFileStorage(basePath);
+	const storage = await createFileStorage(basePath);
 
 	if (!options.tagSchema || options.tagSchema.length === 0) {
 		throw new Error(
