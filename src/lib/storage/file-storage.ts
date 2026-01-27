@@ -24,12 +24,11 @@ export interface FileStorage {
 	getDocumentCounts(): Promise<SourceCounts>;
 }
 
-export function createFileStorage(baseDir: string): FileStorage {
+export async function createFileStorage(baseDir: string): Promise<FileStorage> {
 	const rawContentPath = path.join(baseDir, RAW_DIR_NAME);
 	const processedContentPath = path.join(baseDir, PROCESSED_DIR_NAME);
 
 	const sourceCounts: SourceCounts = {};
-	let countsInitialized = false;
 
 	function resolveLayerPath(
 		layer: "raw" | "processed",
@@ -115,8 +114,6 @@ export function createFileStorage(baseDir: string): FileStorage {
 			}
 			sourceCounts[source].processed++;
 		}
-
-		countsInitialized = true;
 	}
 
 	function buildRawFileContent(input: GreptorEatInput): string {
@@ -283,6 +280,8 @@ export function createFileStorage(baseDir: string): FileStorage {
 		sourceCounts[source].processed++;
 	}
 
+	await initializeSourceCounts();
+
 	return {
 		baseDir,
 		rawContentPath,
@@ -292,9 +291,6 @@ export function createFileStorage(baseDir: string): FileStorage {
 		getUnprocessedContents,
 		saveProcessedContent,
 		getDocumentCounts: async (): Promise<SourceCounts> => {
-			if (!countsInitialized) {
-				await initializeSourceCounts();
-			}
 			return sourceCounts;
 		},
 	};
