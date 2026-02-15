@@ -210,6 +210,7 @@ export function startBackgroundWorkers(args: {
 	const { ctx, queue } = args;
 	const hooks = ctx.hooks;
 	let stopping = false;
+	let activeWorkers = 0;
 	const workerPromises: Promise<void>[] = [];
 
 	function safeHookCall(call: () => void): void {
@@ -226,6 +227,19 @@ export function startBackgroundWorkers(args: {
 			if (!docRef) {
 				await sleep(idleSleepMs);
 				continue;
+			}
+
+			const wasIdle = activeWorkers === 0;
+			activeWorkers++;
+
+			if (wasIdle) {
+				const counts = await ctx.storage.getDocumentCounts();
+				safeHookCall(() => {
+					hooks?.onProcessingStarted?.({
+						concurrency,
+						documentsCount: counts,
+					});
+				});
 			}
 
 			let raw: { tags: Tags; content: string } | undefined;
@@ -283,6 +297,15 @@ export function startBackgroundWorkers(args: {
 						label,
 						error: toError(error).message,
 					});
+				});
+			}
+
+			activeWorkers--;
+
+			if (activeWorkers === 0 && queueSize(queue) === 0) {
+				const counts = await ctx.storage.getDocumentCounts();
+				safeHookCall(() => {
+					hooks?.onProcessingCompleted?.({ documentsCount: counts });
 				});
 			}
 		}
