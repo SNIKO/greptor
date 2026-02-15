@@ -188,16 +188,14 @@ export async function createFileStorage(baseDir: string): Promise<FileStorage> {
 			});
 
 			const fullPath = resolveLayerPath("raw", ref);
-			if (await fileExists(fullPath)) {
-				if (!input.overwrite) {
-					return {
-						type: "duplicate",
-						ref,
-					};
-				}
-			} else {
-				await mkdir(path.dirname(fullPath), { recursive: true });
+			if (!input.overwrite && (await fileExists(fullPath))) {
+				return {
+					type: "duplicate",
+					ref,
+				};
 			}
+
+			await mkdir(path.dirname(fullPath), { recursive: true });
 
 			await writeFile(fullPath, content, "utf8");
 
@@ -291,7 +289,9 @@ export async function createFileStorage(baseDir: string): Promise<FileStorage> {
 		getUnprocessedContents,
 		saveProcessedContent,
 		getDocumentCounts: async (): Promise<SourceCounts> => {
-			return sourceCounts;
+			return Object.fromEntries(
+				Object.entries(sourceCounts).map(([k, v]) => [k, { ...v }]),
+			);
 		},
 	};
 }
