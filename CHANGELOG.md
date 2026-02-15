@@ -1,5 +1,20 @@
 # greptor
 
+## 0.7.0
+
+### Minor Changes
+
+- b3723cd: implement CLI tags generation with interactive workflow
+- e191666: remove "content" from stored content path
+- e48613e: move config file to .greptor subdirectory
+- 19e6bcf: Manual starting background processing
+- 1688edd: feat: add support of custom processing prompts per source
+- e6e127a: Revise hooks to include documents stats
+
+### Patch Changes
+
+- c18cb41: Ensure proper initialization of source counts for hooks
+
 ## 0.6.0
 
 ### Minor Changes
