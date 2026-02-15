@@ -1,5 +1,11 @@
 # greptor
 
+## 0.8.0
+
+### Minor Changes
+
+- 5441974: Add processing start/complete events
+
 ## 0.7.0
 
 ### Minor Changes
