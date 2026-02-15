@@ -34,8 +34,21 @@ export type DocumentProcessingCompletedEvent =
 			label: string;
 	  };
 
+/** Event data for when the processing pipeline starts (first document picked up) */
+export interface ProcessingStartedEvent {
+	concurrency: number;
+	documentsCount: SourceCounts;
+}
+
+/** Event data for when the processing pipeline finishes (no more documents) */
+export interface ProcessingCompletedEvent {
+	documentsCount: SourceCounts;
+}
+
 /** Optional hooks for Greptor events */
 export interface GreptorHooks {
+	onProcessingStarted?: (event: ProcessingStartedEvent) => void;
+	onProcessingCompleted?: (event: ProcessingCompletedEvent) => void;
 	onDocumentProcessingStarted?: (event: DocumentProcessingStartedEvent) => void;
 	onDocumentProcessingCompleted?: (
 		event: DocumentProcessingCompletedEvent,
