@@ -43,15 +43,20 @@ import { createGreptor } from 'greptor';
 const greptor = await createGreptor({
   basePath: './projects/investing/content',
   topic: 'Investing, stock market, financial, and macroeconomics',
+  tagSchema: YOUR_TAG_SCHEMA, // Required. See "Tag Schemas" below.
   model: {
     provider: "@ai-sdk/openai",
     model: "gpt-5-mini",
   },
 });
+
+// Start background processing workers
+await greptor.start();
 ```
 
 - **`basePath`**: Base directory where data will be stored.
 - **`topic`**: Helps Greptor understand your data better and generate a relevant tag schema.
+- **`tagSchema`**: Required. Define your tag fields (or generate them with `greptor generate tags`).
 - **`model`**: A config object with `provider`, `model`, and optional `options` for the [Vercel AI SDK](https://ai-sdk.dev).
 
 Greptor will automatically create and manage the following structure in your basePath:
@@ -80,6 +85,7 @@ Greptor uses an LLM (via [Greptor](https://github.com/greptorio/greptor)) to pro
 	 const greptor = await createGreptor({
 		basePath: './projects/investing/content',
 		topic: 'Investing, stock market, financial, and macroeconomics',
+    tagSchema: YOUR_TAG_SCHEMA,
 		model: {
 			provider: "@ai-sdk/openai-compatible",
 			model: "z-ai/glm4.7",
@@ -90,6 +96,8 @@ Greptor uses an LLM (via [Greptor](https://github.com/greptorio/greptor)) to pro
 			},
 		},
 	});
+
+  await greptor.start();
 	 ```
 
 ### Step 3: Start Feeding Documents
@@ -127,7 +135,7 @@ await greptor.eat({
 
 ### Step 4: Wait for Background Processing
 
-Greptor will write your input to a raw Markdown file immediately, then run background enrichment (LLM cleaning + chunking + tagging) and write a processed Markdown file. You can grep the raw files right away, and the processed files will appear shortly after.
+Greptor writes your input to a raw Markdown file immediately. After you call `await greptor.start()`, background workers run enrichment (LLM cleaning + chunking + tagging) and write a processed Markdown file. You can grep the raw files right away, and the processed files will appear shortly after.
 
 ### Step 5: Generate a Skill (CLI)
 
@@ -350,6 +358,7 @@ You can override the default processing prompt for specific sources to tailor ho
 const greptor = await createGreptor({
   basePath: './projects/investing/content',
   topic: 'Investing, stock market, financial, and macroeconomics',
+  tagSchema: YOUR_TAG_SCHEMA,
   model: {
     provider: "@ai-sdk/openai",
     model: "gpt-5-mini",
@@ -392,6 +401,8 @@ Process this earnings call transcript:
     `,
   },
 });
+
+await greptor.start();
 ```
 
 **Usage notes**:
@@ -408,6 +419,7 @@ Greptor provides optional hooks to monitor document processing. These are useful
 const greptor = await createGreptor({
   basePath: './projects/investing/content',
   topic: 'Investing, stock market, financial, and macroeconomics',
+  tagSchema: YOUR_TAG_SCHEMA,
   model: {
     provider: "@ai-sdk/openai",
     model: "gpt-5-mini",
@@ -430,6 +442,8 @@ const greptor = await createGreptor({
     },
   },
 });
+
+await greptor.start();
 ```
 
 #### Available Hooks
@@ -442,7 +456,7 @@ const greptor = await createGreptor({
 
 ## Tag Schemas
 
-If you don't provide a schema, Greptor can initialize one for your topic. However, for better results, provide a custom tag schema.
+Greptor requires a tag schema. For best results, provide a custom tag schema (or generate one with `greptor generate tags`).
 
 Here's a comprehensive example for investment research:
 
@@ -524,6 +538,8 @@ const greptor = await createGreptor({
     },
   ],
 });
+
+await greptor.start();
 ```
 
 ## License

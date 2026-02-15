@@ -9,6 +9,7 @@ import YAML from "yaml";
 import { writeConfig } from "./config.js";
 import { resolveModel } from "./llm/llm-factory.js";
 import {
+	type BackgroundWorkerHandle,
 	createProcessingQueue,
 	enqueue,
 	enqueueUnprocessedDocuments,
@@ -19,6 +20,10 @@ import { createFileStorage } from "./storage/file-storage.js";
 export interface Greptor {
 	eat: (input: GreptorEatInput) => Promise<GreptorEatResult>;
 	getDocumentCounts: () => Promise<SourceCounts>;
+	/** Enqueue unprocessed documents and start background processing workers. */
+	start: () => Promise<void>;
+	/** Gracefully stop background workers. Workers finish their current item before exiting. */
+	stop: () => Promise<void>;
 }
 
 export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
@@ -42,7 +47,7 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 	await writeConfig(basePath, configData);
 
 	const queue = createProcessingQueue();
-	const queuedCount = await enqueueUnprocessedDocuments({
+	await enqueueUnprocessedDocuments({
 		storage,
 		queue,
 	});
@@ -58,7 +63,28 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 		...(hooks ? { hooks } : {}),
 	};
 
-	startBackgroundWorkers({ ctx, queue, concurrency: options.workers ?? 1 });
+	let workerHandle: BackgroundWorkerHandle | undefined;
+
+	async function start(): Promise<void> {
+		if (workerHandle) {
+			return;
+		}
+
+		workerHandle = startBackgroundWorkers({
+			ctx,
+			queue,
+			concurrency: options.workers ?? 1,
+		});
+	}
+
+	async function stop(): Promise<void> {
+		if (!workerHandle) {
+			return;
+		}
+
+		await workerHandle.stop();
+		workerHandle = undefined;
+	}
 
 	async function eat(input: GreptorEatInput): Promise<GreptorEatResult> {
 		if (input.format !== "text") {
@@ -96,5 +122,7 @@ export async function createGreptor(options: GreptorOptions): Promise<Greptor> {
 	return {
 		eat,
 		getDocumentCounts: () => storage.getDocumentCounts(),
+		start,
+		stop,
 	};
 }

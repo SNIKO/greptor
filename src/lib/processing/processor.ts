@@ -194,16 +194,23 @@ function sleep(ms: number): Promise<void> {
 	});
 }
 
+export interface BackgroundWorkerHandle {
+	/** Signal workers to finish their current item and exit. Resolves when all workers have stopped. */
+	stop: () => Promise<void>;
+}
+
 export function startBackgroundWorkers(args: {
 	ctx: ProcessorContext;
 	queue: ProcessingQueue;
 	concurrency?: number;
 	idleSleepMs?: number;
-}): void {
+}): BackgroundWorkerHandle {
 	const concurrency = Math.max(1, args.concurrency ?? 1);
 	const idleSleepMs = Math.max(50, args.idleSleepMs ?? DEFAULT_IDLE_SLEEP_MS);
 	const { ctx, queue } = args;
 	const hooks = ctx.hooks;
+	let stopping = false;
+	const workerPromises: Promise<void>[] = [];
 
 	function safeHookCall(call: () => void): void {
 		try {
@@ -214,7 +221,7 @@ export function startBackgroundWorkers(args: {
 	}
 
 	async function workerLoop(): Promise<void> {
-		while (true) {
+		while (!stopping) {
 			const docRef = dequeue(queue);
 			if (!docRef) {
 				await sleep(idleSleepMs);
@@ -282,8 +289,15 @@ export function startBackgroundWorkers(args: {
 	}
 
 	for (let i = 0; i < concurrency; i++) {
-		void workerLoop();
+		workerPromises.push(workerLoop());
 	}
+
+	return {
+		stop: async () => {
+			stopping = true;
+			await Promise.all(workerPromises);
+		},
+	};
 }
 
 export async function enqueueUnprocessedDocuments(args: {
